@@ -49,15 +49,21 @@ build_home_html() ->
     Body =
         case werl_template:render(home_template, Bindings) of
             {ok, Html} -> Html;
-            {error, _Reason} -> <<"Error!">>
+            {error, _Reason} -> <<"An error ocurred!">>
         end,
     Static = werl_template:get_static(home_template),
-    build_html(Body, Static, Bindings).
+    Dynamic = werl_template:get_dynamic(home_template),
+    Indexes = werl_template:get_indexes(home_template),
+    build_html(Body, Static, Dynamic, Bindings, Indexes).
 
-build_html(Body, Static, Bindings) ->
+build_html(Body, Static, Dynamic, Bindings, Indexes) ->
+    io:format("!! ~p~n", [{Static, Dynamic}]),
+
     Payload = werl_json:encode(#{
         static => Static,
-        bindings => Bindings
+        dynamic => Dynamic,
+        bindings => Bindings,
+        indexes => Indexes
     }),
     <<
         "<!DOCTYPE html>"

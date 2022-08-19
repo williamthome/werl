@@ -1,34 +1,44 @@
 /* Helpers
    -------------------------------------------------------------------------- */
 
-function assign(s, index, value) {
-    return s.splice(index + 1, 0, value)
+function assign(static, index, value, recursionCount) {
+    return static.splice(parseInt(index) + 1 + recursionCount, 0, value)
 }
 
-function patch({ s, ...args }) {
-    const c = [...s]
+function patch({ static, ...args }) {
+    const staticClone = [...static]
+
+    let recursionCount = 0
     Object.entries(args).forEach(([index, value]) => {
-        assign(c, index, value)
+        assign(staticClone, index, value, recursionCount)
+        recursionCount++
     })
-    return c.join("")
+
+    return staticClone.join("")
 }
 
 /* API
    -------------------------------------------------------------------------- */
 
 const app = document.getElementById("app")
-const { static, bindings } = window.werl
+const { static, dynamic, bindings, indexes } = window.werl
 let count = bindings.count
 
-function render({ count }) {
+function render(static, dynamic) {
     const html = patch({
-        s: static,
-        0: count
+        static,
+        ...dynamic
     })
     morphdom(app, html)
 }
 
 // TODO: Sever side increment
 function increment() {
-    render({ count: ++count })
+    count++
+
+    const countValues = indexes.count.reduce((acc, index) => {
+        return { ...acc, [index]: count };
+    }, {});
+
+    render(static, countValues)
 }

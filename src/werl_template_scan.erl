@@ -15,13 +15,21 @@ do_scan(<<"%>", T/binary>>, expr, [_ | Acc], Buffer, Context) ->
     do_scan(T, text, Acc, <<Buffer/binary, "%>">>, Context);
 do_scan(<<"@", T/binary>>, expr, [_ | Acc], Buffer, Context) ->
     do_scan(T, var, [<<>> | Acc], <<Buffer/binary, "@">>, Context);
-do_scan(<<" ", T/binary>>, var, [Var | Acc], Buffer, {Static, {VarIndex, Vars}}) ->
+do_scan(<<" ", T/binary>>, var, [Var | Acc], Buffer, {Static, {VarIndex, Vars0}}) ->
+    Vars =
+        case proplists:get_value(Var, Vars0) of
+            undefined ->
+                [{Var, [VarIndex]} | Vars0];
+            VarIndexes ->
+                Vars1 = proplists:delete(Var, Vars0),
+                [{Var, [VarIndex | VarIndexes]} | Vars1]
+        end,
     do_scan(
         T,
         expr,
         [<<>> | Acc],
         <<Buffer/binary, " ">>,
-        {Static, {VarIndex + 1, [{Var, VarIndex} | Vars]}}
+        {Static, {VarIndex + 1, Vars}}
     );
 do_scan(<<"%>", T/binary>>, var, [_ | Acc], Buffer, Context) ->
     do_scan(T, text, Acc, <<Buffer/binary, "%>">>, Context);

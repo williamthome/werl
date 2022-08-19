@@ -8,8 +8,16 @@ render(Static, Vars, Dynamic0, Bindings0) when is_list(Vars) ->
         lists:foldl(
             fun({Var, Value}, Acc) ->
                 case proplists:get_value(Var, Vars) of
-                    undefined -> Acc;
-                    Index -> Acc#{Index => Value}
+                    undefined ->
+                        Acc;
+                    Indexes ->
+                        lists:foldl(
+                            fun(Index, IndexAcc) ->
+                                IndexAcc#{Index => Value}
+                            end,
+                            Acc,
+                            Indexes
+                        )
                 end
             end,
             #{},

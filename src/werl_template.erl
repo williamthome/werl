@@ -3,7 +3,8 @@
 -behaviour(gen_server).
 
 %% API functions
--export([start_link/3, start_link/4, render/2, get_static/1]).
+-export([start_link/3, start_link/4]).
+-export([render/2, get_static/1, get_dynamic/1, get_indexes/1]).
 
 %% GenServer callbacks
 -export([init/1, handle_call/3, handle_cast/2]).
@@ -54,6 +55,12 @@ render(TemplateId, Bindings) ->
 get_static(TemplateId) ->
     gen_server:call(TemplateId, get_static).
 
+get_dynamic(TemplateId) ->
+    gen_server:call(TemplateId, get_dynamic).
+
+get_indexes(TemplateId) ->
+    gen_server:call(TemplateId, get_indexes).
+
 %%%=============================================================================
 %%% GenServer callbacks
 %%%=============================================================================
@@ -88,7 +95,12 @@ handle_call(
             {reply, {error, Reason}, State0}
     end;
 handle_call(get_static, _From, #state{static = Static} = State) ->
-    {reply, Static, State}.
+    {reply, Static, State};
+handle_call(get_dynamic, _From, #state{dynamic = Dynamic} = State) ->
+    {reply, Dynamic, State};
+handle_call(get_indexes, _From, #state{vars = Vars} = State) ->
+    Indexes = maps:from_list(Vars),
+    {reply, Indexes, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
