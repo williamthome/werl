@@ -21,6 +21,7 @@ start() ->
             {"/css/[...]", cowboy_static, {priv_dir, werl, "static/css"}},
             {"/js/[...]", cowboy_static, {priv_dir, werl, "static/js"}},
             {"/websocket", werl_websocket, []},
+            {"/favicon.ico", cowboy_static, {priv_file, werl, "static/favicon.ico"}},
             {'_', werl_handler, []}
         ]}
     ]),
