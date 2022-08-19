@@ -1,35 +1,48 @@
-%%%-------------------------------------------------------------------
-%% @doc werl top level supervisor.
-%% @end
-%%%-------------------------------------------------------------------
-
+%%%-----------------------------------------------------------------------------
+%%% @copyright (C) 2022, williamthome
+%%% @doc werl top level supervisor.
+%%%
+%%% @author William Fank Thomé [https://github.com/williamthome/]
+%%% @since 2022
+%%% @end
+%%%-----------------------------------------------------------------------------
 -module(werl_sup).
 
 -behaviour(supervisor).
 
+%% API functions
 -export([start_link/0]).
 
+%% Supervisor callbacks
 -export([init/1]).
 
+%% Defines
 -define(SERVER, ?MODULE).
+
+%%%=============================================================================
+%%% API functions
+%%%=============================================================================
+-spec start_link() -> supervisor:startlink_ret().
 
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-%% sup_flags() = #{strategy => strategy(),         % optional
-%%                 intensity => non_neg_integer(), % optional
-%%                 period => pos_integer()}        % optional
-%% child_spec() = #{id => child_id(),       % mandatory
-%%                  start => mfargs(),      % mandatory
-%%                  restart => restart(),   % optional
-%%                  shutdown => shutdown(), % optional
-%%                  type => worker(),       % optional
-%%                  modules => modules()}   % optional
+%%%=============================================================================
+%%% Supervisor callbacks
+%%%=============================================================================
+-spec init([]) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
+
 init([]) ->
-    SupFlags = #{strategy => one_for_all,
-                 intensity => 0,
-                 period => 1},
+    SupFlags = #{
+        strategy => one_for_all,
+        intensity => 0,
+        period => 1
+    },
     ChildSpecs = [],
     {ok, {SupFlags, ChildSpecs}}.
 
-%% internal functions
+%%%=============================================================================
+%%% Internal functions
+%%%=============================================================================
+
+% Nothing here yet!
