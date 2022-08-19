@@ -22,9 +22,14 @@ function patch({ static, ...args }) {
 
 const app = document.getElementById("app")
 const { static, dynamic, bindings, indexes } = window.werl
-let count = bindings.count
 
-function render(static, dynamic) {
+function render(payload) {
+    const dynamic = Object.entries(payload).reduce((acc1, [prop, value]) => {
+        return { ...acc1, ...indexes[prop].reduce((acc2, index) => {
+            return { ...acc2, [index]: value }
+        }, acc1)}
+    }, {})
+
     const html = patch({
         static,
         ...dynamic
@@ -34,11 +39,5 @@ function render(static, dynamic) {
 
 // TODO: Sever side increment
 function increment() {
-    count++
-
-    const countValues = indexes.count.reduce((acc, index) => {
-        return { ...acc, [index]: count };
-    }, {});
-
-    render(static, countValues)
+    render({ count: ++bindings.count })
 }
