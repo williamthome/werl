@@ -1,27 +1,34 @@
 %%%-----------------------------------------------------------------------------
 %%% @copyright (C) 2022, williamthome
-%%% @doc werl public API.
+%%% @doc werl server.
 %%%
 %%% @author William Fank Thomé [https://github.com/williamthome/]
 %%% @since 2022
 %%% @end
 %%%-----------------------------------------------------------------------------
--module(werl_app).
-
--behaviour(application).
+-module(werl_server).
 
 %% API functions
--export([start/2, stop/1]).
+-export([start/0]).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
 
-start(_StartType, _StartArgs) ->
-    ok = werl_server:start(),
-    werl_sup:start_link().
-
-stop(_State) ->
+start() ->
+    Dispatch = cowboy_router:compile([
+        {'_', [
+            {"/", cowboy_static, {priv_file, werl, "static/index.html"}},
+            {"/css/[...]", cowboy_static, {priv_dir, werl, "static/css"}},
+            {"/js/[...]", cowboy_static, {priv_dir, werl, "static/js"}},
+            {"/websocket", werl_ws, []}
+        ]}
+    ]),
+    {ok, _} = cowboy:start_clear(
+        werl_http_listener,
+        [{port, 8080}],
+        #{env => #{dispatch => Dispatch}}
+    ),
     ok.
 
 %%%=============================================================================
