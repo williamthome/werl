@@ -1,6 +1,6 @@
--module(werl_ws).
+-module(werl_websocket).
 
--behaviour(cowboy_websocket_handler).
+-behaviour(cowboy_websocket).
 
 %% Callbacks
 -export([
@@ -11,6 +11,11 @@
     websocket_info/2
 ]).
 
+%% cowboy types
+-type commands() :: cowboy_websocket:commands().
+-type call_result(State) :: {commands(), State} | {commands(), State, hibernate}.
+
+%% werl types
 -type status() :: not_ready | ready.
 
 -record(state, {
@@ -20,6 +25,12 @@
 %%%=============================================================================
 %%% Callbacks
 %%%=============================================================================
+
+-spec init(Req, any()) ->
+    {ok | module(), Req, any()}
+    | {module(), Req, any(), any()}
+when
+    Req :: cowboy_req:req().
 
 init(Req0, []) ->
     State = #state{},
@@ -45,18 +56,32 @@ init(Req0, []) ->
             end
     end.
 
+-spec websocket_init(State) -> call_result(State) when State :: any().
+
 websocket_init(State) ->
     io:format("init websocket [~p]~n", [self()]),
     do_reply(<<"ready">>, State).
+
+-spec websocket_handle(
+    ping
+    | pong
+    | {text | binary | ping | pong, binary()},
+    State
+) ->
+    call_result(State).
 
 websocket_handle({text, Msg}, State) ->
     {ok, Data} = parse_msg(Msg),
     do_handle(Data, State).
 
+-spec websocket_info(any(), State) -> call_result(State) when State :: any().
+
 websocket_info({notify, Event}, State) ->
     do_reply(Event, State);
 websocket_info({notify, Event, Payload}, State) ->
     do_reply(Event, Payload, State).
+
+-spec terminate(any(), cowboy_req:req(), any()) -> ok.
 
 terminate(Reason, Req, _State) ->
     io:format(
@@ -70,7 +95,7 @@ terminate(Reason, Req, _State) ->
 %%%=============================================================================
 
 parse_msg(Msg) ->
-    case decode(Msg) of
+    case werl_json:decode(Msg) of
         {ok, Data} when is_map(Data) ->
             {ok, Data};
         {ok, Data} ->
@@ -100,7 +125,7 @@ do_reply(Event, State) ->
 
 do_reply(Event, Payload, State) ->
     Data = data(Event, Payload),
-    Msg = encode(Data),
+    Msg = werl_json:encode(Data),
     {reply, {text, Msg}, State, hibernate}.
 
 data(Event, Payload) ->
@@ -108,13 +133,3 @@ data(Event, Payload) ->
         <<"event">> => Event,
         <<"payload">> => Payload
     }.
-
-%%------------------------------------------------------------------------------
-%% JSON
-%%------------------------------------------------------------------------------
-
-encode(Data) ->
-    thoas:encode(Data).
-
-decode(Msg) ->
-    thoas:decode(Msg).

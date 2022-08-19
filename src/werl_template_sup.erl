@@ -1,12 +1,4 @@
-%%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2022, williamthome
-%%% @doc werl top level supervisor.
-%%%
-%%% @author William Fank Thomé [https://github.com/williamthome/]
-%%% @since 2022
-%%% @end
-%%%-----------------------------------------------------------------------------
--module(werl_sup).
+-module(werl_template_sup).
 
 -behaviour(supervisor).
 
@@ -34,15 +26,20 @@ start_link() ->
 
 init([]) ->
     SupFlags = #{
-        strategy => one_for_all,
+        strategy => one_for_one,
         intensity => 0,
         period => 1
     },
-    TemplateSup = #{
-        id => template_sup,
-        start => {werl_template_sup, start_link, []}
+    Home = #{
+        id => home_template,
+        start =>
+            {werl_template, start_link, [
+                home_template,
+                "index.html.eel",
+                #{<<"count">> => <<"0">>}
+            ]}
     },
-    ChildSpecs = [TemplateSup],
+    ChildSpecs = [Home],
     {ok, {SupFlags, ChildSpecs}}.
 
 %%%=============================================================================

@@ -11,7 +11,7 @@
 -behaviour(application).
 
 %% API functions
--export([start/2, stop/1]).
+-export([start/2, stop/1, priv_dir/0]).
 
 %%%=============================================================================
 %%% API functions
@@ -23,6 +23,9 @@ start(_StartType, _StartArgs) ->
 
 stop(_State) ->
     ok.
+
+priv_dir() ->
+    code:priv_dir(werl).
 
 %%%=============================================================================
 %%% Internal functions

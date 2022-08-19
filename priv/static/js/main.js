@@ -17,22 +17,18 @@ function patch({ s, ...args }) {
    -------------------------------------------------------------------------- */
 
 const app = document.getElementById("app")
-let count = 0
+const { static, bindings } = window.werl
+let count = bindings.count
 
 function render({ count }) {
     const html = patch({
-        s: [
-            // TODO: Static from server
-            `<div id="app">
-                <button onclick="increment();">Increment</button>
-                <div>Count:<span id="count">`, `</span></div>
-            </div>`
-        ],
+        s: static,
         0: count
     })
     morphdom(app, html)
 }
 
+// TODO: Sever side increment
 function increment() {
     render({ count: ++count })
 }

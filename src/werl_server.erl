@@ -18,10 +18,10 @@
 start() ->
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/", cowboy_static, {priv_file, werl, "static/index.html"}},
             {"/css/[...]", cowboy_static, {priv_dir, werl, "static/css"}},
             {"/js/[...]", cowboy_static, {priv_dir, werl, "static/js"}},
-            {"/websocket", werl_ws, []}
+            {"/websocket", werl_websocket, []},
+            {'_', werl_handler, []}
         ]}
     ]),
     {ok, _} = cowboy:start_clear(
