@@ -1,10 +1,10 @@
 <div id="app">
-    <button onclick="increment();" data-werl-click="werl_ctrl_home:increment[<%= @count %>]">
+    <button onclick="increment();">
         Increment
     </button>
     <div>Count:
         <span id="count">
-            <%= @count %>
+            <%= Count .%>
         </span>
     </div>
 </div>

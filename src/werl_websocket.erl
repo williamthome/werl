@@ -114,7 +114,14 @@ do_handle(
     State = State0#state{
         status = ready
     },
-    do_reply(State).
+    do_reply(State);
+do_handle(
+    #{<<"event">> := <<"increment">>},
+    State
+) ->
+    io:format("Got increment~n"),
+    Html = werl_ctrl_home:increment(),
+    do_reply(<<"render">>, Html, State).
 
 do_reply(State) ->
     {ok, State, hibernate}.

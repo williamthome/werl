@@ -3,44 +3,34 @@
 -behaviour(gen_server).
 
 %% API functions
--export([start_link/3, start_link/4]).
--export([render/2, get_static/1, get_dynamic/1, get_indexes/1]).
+-export([start_link/2]).
+-export([render/2, bindings/1]).
 
 %% GenServer callbacks
 -export([init/1, handle_call/3, handle_cast/2]).
 
 -record(state, {
-    static :: [binary()],
-    vars :: [{binary(), integer()}],
-    dynamic :: #{integer() => binary()} | [binary()],
-    renders = [] :: [binary()]
+    static    = [] :: list(),
+    dynamic   = [] :: list(),
+    snapshots = [] :: list(),
+    bindings  = #{} :: map()
 }).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
--spec start_link(atom(), string() | binary(), map()) -> gen:start_ret().
+-spec start_link(atom(), string() | binary()) -> gen:start_ret().
 
-start_link(TemplateId, TemplateFilename, Dynamic) when is_list(TemplateFilename) ->
+start_link(TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
     BaseDir = werl_app:priv_dir(),
     Template = filename:join([BaseDir, "templates", TemplateFilename]),
     case file:read_file(Template) of
-        {ok, Html} -> start_link(TemplateId, Html, Dynamic);
+        {ok, Html} -> start_link(TemplateId, Html);
         {error, Reason} -> {error, Reason}
     end;
-start_link(TemplateId, Html, Dynamic) when is_binary(Html) ->
-    {Static, Vars} = werl_template_scan:scan(Html),
-    start_link(TemplateId, Static, Vars, Dynamic).
-
--spec start_link(atom(), binary(), list(), map()) -> gen:start_ret().
-
-start_link(TemplateId, Static, Vars, Dynamic) when
-    is_atom(TemplateId),
-    is_list(Static),
-    is_list(Vars),
-    is_map(Dynamic)
-->
-    InitArgs = [Static, Vars, Dynamic],
+start_link(TemplateId, Html) when is_binary(Html) ->
+    {Static, Dynamic} = eel:compile(Html),
+    InitArgs = [Static, Dynamic],
     gen_server:start_link({local, TemplateId}, ?MODULE, InitArgs, []).
 
 %%------------------------------------------------------------------------------
@@ -52,24 +42,23 @@ start_link(TemplateId, Static, Vars, Dynamic) when
 render(TemplateId, Bindings) ->
     gen_server:call(TemplateId, {render, Bindings}).
 
-get_static(TemplateId) ->
-    gen_server:call(TemplateId, get_static).
+%%------------------------------------------------------------------------------
+%% @doc Bindings.
+%% @end
+%%------------------------------------------------------------------------------
+-spec bindings(atom()) -> map().
 
-get_dynamic(TemplateId) ->
-    gen_server:call(TemplateId, get_dynamic).
-
-get_indexes(TemplateId) ->
-    gen_server:call(TemplateId, get_indexes).
+bindings(TemplateId) ->
+    gen_server:call(TemplateId, bindings).
 
 %%%=============================================================================
 %%% GenServer callbacks
 %%%=============================================================================
 -spec init(list()) -> {ok, #state{}}.
 
-init([Static, Vars, Dynamic]) ->
+init([Static, Dynamic]) ->
     State = #state{
         static = Static,
-        vars = Vars,
         dynamic = Dynamic
     },
     {ok, State}.
@@ -79,28 +68,19 @@ handle_call(
     _From,
     #state{
         static = Static,
-        vars = Vars,
         dynamic = Dynamic,
-        renders = Renders
+        snapshots = Renders,
+        bindings = Bindings0
     } = State0
 ) ->
-    case werl_template_render:render(Static, Vars, Dynamic, Bindings) of
-        {ok, {Render, NewDynamic}} ->
-            State = State0#state{
-                dynamic = NewDynamic,
-                renders = [Render | Renders]
-            },
-            {reply, {ok, Render}, State};
-        {error, Reason} ->
-            {reply, {error, Reason}, State0}
-    end;
-handle_call(get_static, _From, #state{static = Static} = State) ->
-    {reply, Static, State};
-handle_call(get_dynamic, _From, #state{dynamic = Dynamic} = State) ->
-    {reply, Dynamic, State};
-handle_call(get_indexes, _From, #state{vars = Vars} = State) ->
-    Indexes = maps:from_list(Vars),
-    {reply, Indexes, State}.
+    Render = eel:render({Static, Dynamic}, Bindings),
+    State = State0#state{
+        snapshots = [Render | Renders],
+        bindings = maps:merge(Bindings0, Bindings)
+    },
+    {reply, Render, State};
+handle_call(bindings, _From, #state{bindings = Bindings} = State) ->
+    {reply, Bindings, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.

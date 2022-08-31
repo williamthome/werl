@@ -34,9 +34,7 @@ init([]) ->
         id => home_template,
         start =>
             {werl_template, start_link, [
-                home_template,
-                "index.html.eel",
-                #{<<"count">> => <<"0">>}
+                home_template, "index.html.eel"
             ]}
     },
     ChildSpecs = [Home],

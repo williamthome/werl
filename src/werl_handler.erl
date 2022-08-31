@@ -43,28 +43,10 @@ handle(<<"GET">>, <<"/">>, Req0, State) ->
     {ok, Req, State}.
 
 build_home_html() ->
-    Bindings = #{
-        <<"count">> => <<"0">>
-    },
-    Body =
-        case werl_template:render(home_template, Bindings) of
-            {ok, Html} -> Html;
-            {error, _Reason} -> <<"An error ocurred!">>
-        end,
-    Static = werl_template:get_static(home_template),
-    Dynamic = werl_template:get_dynamic(home_template),
-    Indexes = werl_template:get_indexes(home_template),
-    build_html(Body, Static, Dynamic, Bindings, Indexes).
+    Body = werl_ctrl_home:render(),
+    build_html(Body).
 
-build_html(Body, Static, Dynamic, Bindings, Indexes) ->
-    io:format("!! ~p~n", [{Static, Dynamic}]),
-
-    Payload = werl_json:encode(#{
-        static => Static,
-        dynamic => Dynamic,
-        bindings => Bindings,
-        indexes => Indexes
-    }),
+build_html(Body) ->
     <<
         "<!DOCTYPE html>"
         "<html lang=\"en\">"
@@ -80,9 +62,6 @@ build_html(Body, Static, Dynamic, Bindings, Indexes) ->
         "</head>"
         "<body>",
         Body/binary,
-        "<script>window.werl = ",
-        Payload/binary,
-        "</script>"
         "</body>"
         "</html>"
     >>.

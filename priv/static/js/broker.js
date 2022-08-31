@@ -44,6 +44,9 @@ worker.onmessage = function (e) {
         case "ready":
             state.status = STATUS_READY
             break
+        case "render":
+            render(payload)
+            break
         default:
             throw new Error(event
                 ? "Event not implemented: " + event
