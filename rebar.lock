@@ -1,6 +1,10 @@
 {"1.2.0",
 [{<<"cowboy">>,{pkg,<<"cowboy">>,<<"2.9.0">>},0},
  {<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.11.0">>},1},
+ {<<"eel">>,
+  {git,"https://github.com/williamthome/eel.git",
+       {ref,"ddc894a7322e296b99a006636619e0be340655c5"}},
+  0},
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.9.0">>},0},
  {<<"ranch">>,{pkg,<<"ranch">>,<<"1.8.0">>},1},
  {<<"thoas">>,{pkg,<<"thoas">>,<<"0.4.0">>},0}]}.
