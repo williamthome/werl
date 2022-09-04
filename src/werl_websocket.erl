@@ -60,7 +60,9 @@ init(Req0, []) ->
 
 websocket_init(State) ->
     io:format("init websocket [~p]~n", [self()]),
-    do_reply(<<"ready">>, State).
+    % Pass the current controller to the state
+    Static = werl_ctrl_home:static(),
+    do_reply(<<"ready">>, Static, State).
 
 -spec websocket_handle(
     ping
@@ -120,8 +122,8 @@ do_handle(
     State
 ) ->
     io:format("Got increment~n"),
-    Html = werl_ctrl_home:increment(),
-    do_reply(<<"render">>, Html, State).
+    [_Static, Indexes] = werl_ctrl_home:increment(),
+    do_reply(<<"render">>, Indexes, State).
 
 do_reply(State) ->
     {ok, State, hibernate}.
