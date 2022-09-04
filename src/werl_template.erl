@@ -4,16 +4,15 @@
 
 %% API functions
 -export([start_link/2]).
--export([render/2, bindings/1]).
+-export([render/2, static/1, bindings/1]).
 
 %% GenServer callbacks
 -export([init/1, handle_call/3, handle_cast/2]).
 
 -record(state, {
-    static    = [] :: list(),
-    dynamic   = [] :: list(),
-    snapshots = [] :: list(),
-    bindings  = #{} :: map()
+    static = []  :: list(),
+    ast    = []  :: list(),
+    memo   = #{} :: map()
 }).
 
 %%%=============================================================================
@@ -29,8 +28,8 @@ start_link(TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
         {error, Reason} -> {error, Reason}
     end;
 start_link(TemplateId, Html) when is_binary(Html) ->
-    {Static, Dynamic} = eel:compile(Html),
-    InitArgs = [Static, Dynamic],
+    {Static, AST} = eel:compile(Html),
+    InitArgs = [Static, AST],
     gen_server:start_link({local, TemplateId}, ?MODULE, InitArgs, []).
 
 %%------------------------------------------------------------------------------
@@ -41,6 +40,15 @@ start_link(TemplateId, Html) when is_binary(Html) ->
 
 render(TemplateId, Bindings) ->
     gen_server:call(TemplateId, {render, Bindings}).
+
+%%------------------------------------------------------------------------------
+%% @doc Static.
+%% @end
+%%------------------------------------------------------------------------------
+-spec static(atom()) -> binary().
+
+static(TemplateId) ->
+    gen_server:call(TemplateId, static).
 
 %%------------------------------------------------------------------------------
 %% @doc Bindings.
@@ -56,10 +64,10 @@ bindings(TemplateId) ->
 %%%=============================================================================
 -spec init(list()) -> {ok, #state{}}.
 
-init([Static, Dynamic]) ->
+init([Static, AST]) ->
     State = #state{
         static = Static,
-        dynamic = Dynamic
+        ast = AST
     },
     {ok, State}.
 
@@ -68,18 +76,18 @@ handle_call(
     _From,
     #state{
         static = Static,
-        dynamic = Dynamic,
-        snapshots = Renders,
-        bindings = Bindings0
+        ast    = AST,
+        memo   = Memo
     } = State0
 ) ->
-    Render = eel:render({Static, Dynamic}, Bindings),
+    {Render, NewMemo, {_, _Indexes, NewIndexes}} = eel:render(Static, AST, Memo, Bindings),
     State = State0#state{
-        snapshots = [Render | Renders],
-        bindings = maps:merge(Bindings0, Bindings)
+        memo = NewMemo
     },
-    {reply, Render, State};
-handle_call(bindings, _From, #state{bindings = Bindings} = State) ->
+    {reply, [Render, NewIndexes], State};
+handle_call(static, _From, #state{static = Static} = State) ->
+    {reply, Static, State};
+handle_call(bindings, _From, #state{memo = #{bindings := Bindings}} = State) ->
     {reply, Bindings, State}.
 
 handle_cast(_Msg, State) ->

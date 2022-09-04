@@ -43,7 +43,7 @@ handle(<<"GET">>, <<"/">>, Req0, State) ->
     {ok, Req, State}.
 
 build_home_html() ->
-    Body = werl_ctrl_home:render(),
+    [Body, _Indexes] = werl_ctrl_home:render(),
     build_html(Body).
 
 build_html(Body) ->

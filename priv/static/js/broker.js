@@ -22,6 +22,7 @@ const STATUS_NOT_READY = "not_ready"
 
 const state = new Proxy({
     status: STATUS_NOT_READY,
+    static: []
 }, {
     get: function (target, name) {
         return target[name]
@@ -43,9 +44,10 @@ worker.onmessage = function (e) {
     switch (event) {
         case "ready":
             state.status = STATUS_READY
+            state.static = payload
             break
         case "render":
-            render(payload)
+            render(state.static, payload)
             break
         default:
             throw new Error(event
