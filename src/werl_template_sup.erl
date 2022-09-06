@@ -30,14 +30,21 @@ init([]) ->
         intensity => 0,
         period => 1
     },
-    Home = #{
-        id => home_template,
+    App = #{
+        id => app,
         start =>
             {werl_template, start_link, [
-                home_template, "index.html.eel"
+                app, "app.html.eel"
             ]}
     },
-    ChildSpecs = [Home],
+    Home = #{
+        id => home,
+        start =>
+            {werl_template, start_link, [
+                home, "index.html.eel"
+            ]}
+    },
+    ChildSpecs = [App, Home],
     {ok, {SupFlags, ChildSpecs}}.
 
 %%%=============================================================================

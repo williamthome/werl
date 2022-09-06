@@ -43,25 +43,9 @@ handle(<<"GET">>, <<"/">>, Req0, State) ->
     {ok, Req, State}.
 
 build_home_html() ->
-    [Body, _Indexes] = werl_ctrl_home:render(),
-    build_html(Body).
-
-build_html(Body) ->
-    <<
-        "<!DOCTYPE html>"
-        "<html lang=\"en\">"
-        "<head>"
-        "<meta charset=\"UTF-8\">"
-        "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-        "<title>WErl</title>"
-        "<link rel=\"stylesheet\" href=\"css/style.css\">"
-        "<script src=\"js/broker.js\" async></script>"
-        "<script src=\"js/morphdom.min.js\" async></script>"
-        "<script src=\"js/main.js\" defer></script>"
-        "</head>"
-        "<body>",
-        Body/binary,
-        "</body>"
-        "</html>"
-    >>.
+    [Body, _] = werl_ctrl_home:render(),
+    [App, _] = werl_template:render(app, #{
+        'Title' => <<"WErl">>,
+        'InnerContent' => Body
+    }),
+    App.

@@ -13,13 +13,13 @@ render() ->
     render(Bindings).
 
 render(Bindings) ->
-    werl_template:render(home_template, Bindings).
+    werl_template:render(home, Bindings).
 
 static() ->
-    werl_template:static(home_template).
+    werl_template:static(home).
 
 bindings() ->
-    werl_template:bindings(home_template).
+    werl_template:bindings(home).
 
 increment() ->
     #{'Count' := Count} = bindings(),
