@@ -10,9 +10,8 @@
 -export([init/1, handle_call/3, handle_cast/2]).
 
 -record(state, {
-    static = []  :: list(),
-    ast    = []  :: list(),
-    memo   = #{} :: map()
+    compiled = []  :: eel_compile:result(),
+    memo     = #{} :: eel_render:memo()
 }).
 
 %%%=============================================================================
@@ -28,8 +27,8 @@ start_link(TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
         {error, Reason} -> {error, Reason}
     end;
 start_link(TemplateId, Html) when is_binary(Html) ->
-    {Static, AST} = eel:compile(Html),
-    InitArgs = [Static, AST],
+    Compiled = eel:compile(Html),
+    InitArgs = [Compiled],
     gen_server:start_link({local, TemplateId}, ?MODULE, InitArgs, []).
 
 %%------------------------------------------------------------------------------
@@ -64,28 +63,19 @@ bindings(TemplateId) ->
 %%%=============================================================================
 -spec init(list()) -> {ok, #state{}}.
 
-init([Static, AST]) ->
-    State = #state{
-        static = Static,
-        ast = AST
-    },
+init([Compiled]) ->
+    State = #state{compiled = Compiled},
     {ok, State}.
 
 handle_call(
     {render, Bindings},
     _From,
-    #state{
-        static = Static,
-        ast    = AST,
-        memo   = Memo
-    } = State0
+    #state{compiled = Compiled, memo = Memo} = State0
 ) ->
-    {Render, NewMemo, {_, _Indexes, NewIndexes}} = eel:render(Static, AST, Memo, Bindings),
-    State = State0#state{
-        memo = NewMemo
-    },
-    {reply, [Render, NewIndexes], State};
-handle_call(static, _From, #state{static = Static} = State) ->
+    {Render, NewMemo, Indexes} = eel:render(Compiled, Memo, Bindings),
+    State = State0#state{memo = NewMemo},
+    {reply, [Render, Indexes], State};
+handle_call(static, _From, #state{compiled = {Static, _}} = State) ->
     {reply, Static, State};
 handle_call(bindings, _From, #state{memo = #{bindings := Bindings}} = State) ->
     {reply, Bindings, State}.

@@ -1,4 +1,4 @@
 <div id="app">
     <button onclick="increment();">Increment</button>
-    <div>Count: <%= Count .%></div>
+    <div>Count: <span><%= Count .%></span></div>
 </div>
