@@ -10,8 +10,8 @@
 
     <link rel="stylesheet" href="css/style.css">
 
-    <script src="js/werl.broker.js" async></script>
     <script src="js/morphdom.min.js" async></script>
+    <script src="js/werl.broker.js" defer></script>
     <script src="js/main.js" defer></script>
 </head>
 

@@ -1,29 +1,9 @@
-function buildWerl(root) {
-
-    /* Helpers
-    --------------------------------------------------------------------------*/
-
-    /**
-     *
-     * @param {string} eventName
-     * @param {{}} [payload]
-     * @returns {{}}
-     */
-    function buildData(eventName, payload = {}) {
-        return {
-            event: eventName,
-            payload
-        }
-    }
+function buildWerl(root, topic = "/") {
 
     /* State
     --------------------------------------------------------------------------*/
 
-    const STATUS_READY = "ready"
-    const STATUS_NOT_READY = "not_ready"
-
     const state = new Proxy({
-        status: STATUS_NOT_READY,
         static: []
     }, {
         get: function (target, name) {
@@ -55,7 +35,7 @@ function buildWerl(root) {
             return staticClone.join("")
         }
 
-        function render(elem, static, indexes) {
+        function render(elem, static, indexes  = []) {
             const html = patch(static, indexes)
             morphdom(elem, html)
         }
@@ -65,125 +45,125 @@ function buildWerl(root) {
         }
     }
 
-    /* Worker
-    --------------------------------------------------------------------------*/
-
-    function buildWErlWorker(scriptURL, dom, root) {
-        const worker = new Worker(scriptURL)
-        let _onevent = undefined;
-
-        worker.onmessage = function (e) {
-            const { event, payload } = msg = e.data
-
-            const eventName = event === "ready" ? "init" : event
-
-            switch(eventName) {
-                case "init":
-                    state.status = STATUS_READY
-                    state.static = payload
-                    break
-                case "render":
-                    dom.render(root, state.static, payload)
-                    break
-            }
-
-            _onevent && _onevent(eventName, payload, state)
-        }
-
-        console.log("WErl worker is ready")
-
-        return {
-            worker,
-            set onevent(onevent) {
-                _onevent = onevent
-            },
-        }
-    }
-
     /* Socket
     --------------------------------------------------------------------------*/
 
-    function buildWErlSocket(worker) {
-        if (!("WebSocket" in window)) {
-            throw new Error("WebSocket is not supported by this browser")
-        }
-
+    function buildWErlSocket() {
         /** @type {WebSocket|undefined} */
         let socket = undefined
+        const subscribers = []
         const msgQueue = []
-        let resolvingSocket = true
 
-        async function openSocketConnection() {
-            resolvingSocket = true
-
-            const socketResolve = new Promise((resolve) => {
+        function connect() {
+            return new Promise((resolve) => {
                 const protocol = "ws"
                 const host = location.host
                 const uri = "/websocket"
-                const url = `${protocol}://${host}${uri}`
+                const url = `${protocol}://${host}${uri}${topic}`
                 socket = new WebSocket(url)
 
-                socket.onopen = function () {
+                socket.onopen = async function () {
                     console.log("WErl socket is connected")
+                    await flush()
                     return resolve()
                 }
 
-                socket.onmessage = function (e) {
+                socket.onmessage = async function (e) {
                     const msg = e.data
-                    worker.postMessage(msg)
+                    const {event, payload} = JSON.parse(msg)
+                    await notify(event, payload)
                 }
 
-                socket.onclose = function () {
-                    console.log("WErl socket connection closed")
+                socket.onclose = function (e) {
+                    console.log("WErl socket connection closed", e)
+                    socket = undefined
                     return resolve()
                 }
-
-                console.log("WErl socket is ready")
             })
-
-            await socketResolve
-
-            resolvingSocket = false
         }
 
-        openSocketConnection().then(() => {
-            if (socket.readyState !== WebSocket.OPEN) return
+        function disconnect() {
+            const code = 1000 // normal
+            const reason = "WErl socket disconnected"
+            socket.close(code, reason)
+        }
 
-            if (state.status !== STATUS_READY) {
-                state.status = STATUS_READY
-                send("ready")
-            }
-        })
+        function on(event, handler) {
+            subscribers.push({ event, handler })
+        }
 
-        async function send(eventName, payload = {}) {
-            socket.readyState === WebSocket.CLOSED && await openSocketConnection()
-
-            const data = buildData(eventName, payload)
+        async function cast(event, payload = {}) {
+            const data = {event, payload}
             const msg = JSON.stringify(data)
-
-            // TODO: Msg monitor
-            if (!socket.readyState === WebSocket.OPEN) {
-                msgQueue.push({ msg })
-                return
-            }
-
-            socket.send(msg)
+            msgQueue.push(new Promise((resolve, reject) => {
+                try {
+                    socket?.readyState === WebSocket.OPEN && socket.send(msg)
+                    resolve()
+                } catch(err) {
+                    reject(err)
+                }
+            }))
+            await flush()
         }
 
-        return {
-            send
+
+        async function flush() {
+            (!socket || !socket.readyState === WebSocket.CLOSED) && await connect()
+
+            await Promise.allSettled(msgQueue)
         }
+
+        async function notify(event, payload) {
+            const notifyQueue = subscribers.reduce((acc, subs) => {
+                subs.event === event && acc.push(
+                    new Promise(async (resolve, reject) => {
+                        try {
+                            await subs.handler(payload)
+                            resolve()
+                        } catch (err) {
+                            reject(err)
+                        }
+                    })
+                )
+                return acc
+            }, [])
+            await Promise.allSettled(notifyQueue)
+        }
+
+        console.log("WErl socket is ready")
+
+        return { connect, disconnect, on, cast }
     }
 
+    /* Setup
+    --------------------------------------------------------------------------*/
+
     const werlDom = buildDOM()
-    const werlWorker = buildWErlWorker("js/werl.worker.js", werlDom, root)
-    const werlSocket = buildWErlSocket(werlWorker.worker)
+    let werlSocket
+
+    if ("WebSocket" in window) {
+        werlSocket = buildWErlSocket(topic)
+
+        werlSocket.on("ready", (static) => {
+            state.static = static
+        })
+
+        werlSocket.on("render", (bindings) => {
+            werlDom.render(root, state.static, bindings)
+        })
+
+        werlSocket.connect()
+    } else {
+        const errorMsg = "WebSocket is not supported by this browser"
+        werlDom.render(root, errorMsg)
+    }
+
+    const doesNothing = () => {}
 
     return {
-        // e.g. werl.handleEvent = (eventName, payload, state) => {}
-        set handleEvent(onevent) {
-            werlWorker.onevent = onevent
-        },
-        cast:  werlSocket.send
+        connect: werlSocket?.connect ?? doesNothing,
+        disconnect: werlSocket?.disconnect ?? doesNothing,
+        on: werlSocket?.on ?? doesNothing,
+        cast: werlSocket?.cast ?? doesNothing,
     }
 }
