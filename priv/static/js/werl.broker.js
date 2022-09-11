@@ -4,7 +4,7 @@ function buildWerl(root, topic = "/") {
     --------------------------------------------------------------------------*/
 
     const state = new Proxy({
-        static: []
+        static: window.werlStatic
     }, {
         get: function (target, name) {
             return target[name]
@@ -39,6 +39,8 @@ function buildWerl(root, topic = "/") {
             const html = patch(static, indexes)
             morphdom(elem, html)
         }
+
+        console.log("WErl DOM built")
 
         return {
             render
@@ -130,7 +132,7 @@ function buildWerl(root, topic = "/") {
             await Promise.allSettled(notifyQueue)
         }
 
-        console.log("WErl socket is ready")
+        console.log("WErl socket built")
 
         return { connect, disconnect, on, cast }
     }
@@ -144,8 +146,8 @@ function buildWerl(root, topic = "/") {
     if ("WebSocket" in window) {
         werlSocket = buildWErlSocket(topic)
 
-        werlSocket.on("ready", (static) => {
-            state.static = static
+        werlSocket.on("ready", () => {
+            console.log("WErl socket is ready")
         })
 
         werlSocket.on("render", (bindings) => {
@@ -159,6 +161,8 @@ function buildWerl(root, topic = "/") {
     }
 
     const doesNothing = () => {}
+
+    console.log("WErl built")
 
     return {
         connect: werlSocket?.connect ?? doesNothing,

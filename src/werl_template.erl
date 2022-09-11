@@ -70,11 +70,11 @@ init([Compiled]) ->
 handle_call(
     {render, Bindings},
     _From,
-    #state{compiled = Compiled, memo = Memo} = State0
+    #state{compiled = {Static, _AST} = Compiled, memo = Memo} = State0
 ) ->
     {Render, NewMemo, Indexes} = eel:render(Compiled, Memo, Bindings),
     State = State0#state{memo = NewMemo},
-    {reply, [Render, Indexes], State};
+    {reply, {Render, Static, Indexes}, State};
 handle_call(static, _From, #state{compiled = {Static, _}} = State) ->
     {reply, Static, State};
 handle_call(bindings, _From, #state{memo = #{bindings := Bindings}} = State) ->

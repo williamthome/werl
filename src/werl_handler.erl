@@ -43,9 +43,10 @@ handle(<<"GET">>, <<"/">>, Req0, State) ->
     {ok, Req, State}.
 
 build_home_html() ->
-    [Body, _] = werl_ctrl_home:render(),
-    [App, _] = werl_template:render(app, #{
+    {Body, Static, _} = werl_ctrl_home:render(),
+    {App, _, _} = werl_template:render(app, #{
         'Title' => <<"WErl">>,
+        'Static' => werl_json:encode(Static),
         'InnerContent' => Body
     }),
     App.
