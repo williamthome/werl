@@ -4,7 +4,7 @@ function buildWerl(root) {
     --------------------------------------------------------------------------*/
 
     const state = new Proxy({
-        static: window.werlStatic
+        static: window.werlStatic,
     }, {
         get: function (target, name) {
             return target[name]
@@ -61,12 +61,13 @@ function buildWerl(root) {
                 const protocol = "ws"
                 const host = location.host
                 const uri = "/websocket"
-                const url = `${protocol}://${host}${uri}`
+                const query = `?path=${location.pathname}`
+                const url = `${protocol}://${host}${uri}${query}`
                 _socket = new WebSocket(url)
 
                 _socket.onopen = async function () {
                     console.log("WErl socket is connected")
-                    await flush()
+                    // await cast("ready", state)
                     return resolve()
                 }
 

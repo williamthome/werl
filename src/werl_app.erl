@@ -11,14 +11,18 @@
 -behaviour(application).
 
 %% API functions
--export([start/2, stop/1, priv_dir/0]).
+-export([
+    start/2,
+    stop/1,
+    priv_dir/0
+]).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
 
 start(_StartType, _StartArgs) ->
-    ok = werl_server:start(),
+    ok = werl_server:start(get_env()),
     werl_sup:start_link().
 
 stop(_State) ->
@@ -31,4 +35,25 @@ priv_dir() ->
 %%% Internal functions
 %%%=============================================================================
 
-% Nothing here yet!
+get_env() ->
+    #{
+        app => get_env_app(),
+        router => get_env_router(),
+        idle_timeout => get_env_idle_timeout()
+    }.
+
+get_env_app() ->
+    get_env_value(app).
+
+get_env_router() ->
+    get_env_value(router).
+
+get_env_idle_timeout() ->
+    get_env_value(idle_timeout, 60_000).
+
+get_env_value(Env) ->
+    {ok, Value} = application:get_env(werl, Env),
+    Value.
+
+get_env_value(Env, Default) ->
+    application:get_env(werl, Env, Default).

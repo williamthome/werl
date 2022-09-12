@@ -16,28 +16,29 @@
 -type call_result(State) :: {commands(), State} | {commands(), State, hibernate}.
 
 %% werl types
--type status() :: not_ready | ready.
 
 -record(state, {
-    status = not_ready :: status()
+    route :: map(),
+    static :: eel_compile:static()
 }).
 
 %%%=============================================================================
 %%% Callbacks
 %%%=============================================================================
 
--spec init(Req, any()) ->
-    {ok | module(), Req, any()}
-    | {module(), Req, any(), any()}
-when
+-spec init(Req, map()) -> {ok | module(), Req, term()} | {module(), Req, term(), term()} when
     Req :: cowboy_req:req().
 
-init(Req0, []) ->
-    State = #state{},
-    OneMinuteInMs = 60_000,
-    WsConnTimeout = OneMinuteInMs * 1,
+init(Req0, #{router := Router, idle_timeout := WsConnTimeout} = Args) ->
+    io:format("websocket connection initiated~n~p~n~nstate: ~p~n", [Req0, Args]),
+
+    #{path := Path} = cowboy_req:match_qs([path], Req0),
+    {ok, Route} = werl_router:route_info(Router, <<"GET">>, Path),
+    State = #state{
+        route = Route
+    },
     Options = #{idle_timeout => WsConnTimeout},
-    io:format("websocket connection initiated~n~p~n~nstate: ~p~n", [Req0, State]),
+
     case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req0) of
         undefined ->
             {cowboy_websocket, Req0, State, Options};
@@ -56,7 +57,7 @@ init(Req0, []) ->
             end
     end.
 
--spec websocket_init(State) -> call_result(State) when State :: any().
+-spec websocket_init(State) -> call_result(State) when State :: term().
 
 websocket_init(State) ->
     io:format("init websocket [~p]~n", [self()]),
@@ -74,14 +75,14 @@ websocket_handle({text, Msg}, State) ->
     {ok, Data} = parse_msg(Msg),
     do_handle(Data, State).
 
--spec websocket_info(any(), State) -> call_result(State) when State :: any().
+-spec websocket_info(term(), State) -> call_result(State) when State :: term().
 
 websocket_info({notify, Event}, State) ->
     do_reply(Event, State);
 websocket_info({notify, Event, Payload}, State) ->
     do_reply(Event, Payload, State).
 
--spec terminate(any(), cowboy_req:req(), any()) -> ok.
+-spec terminate(term(), cowboy_req:req(), term()) -> ok.
 
 terminate(Reason, Req, _State) ->
     io:format(
@@ -107,21 +108,26 @@ parse_msg(Msg) ->
     end.
 
 do_handle(
-    #{<<"event">> := <<"ready">>},
+    #{<<"event">> := <<"ready">>, <<"payload">> := Payload},
     State0
 ) ->
-    io:format("Got ready~n"),
+    io:format("Got ready ~p~n", [Payload]),
+    #{<<"static">> := Static} = Payload,
     State = State0#state{
-        status = ready
+        static = Static
     },
     do_reply(State);
 do_handle(
-    #{<<"event">> := <<"increment">>},
-    State
+    #{<<"event">> := Event, <<"payload">> := Payload},
+    #state{route = Route} = State
 ) ->
-    io:format("Got increment~n"),
-    {_HTML, _Static, Indexes} = werl_ctrl_home:increment(),
-    do_reply(<<"render">>, Indexes, State).
+    #{controller := Controller, params := Params} = Route,
+    case erlang:apply(Controller, handle_event, [Event, Payload, Params]) of
+        {reply, ReEvent, RePayload} ->
+            do_reply(ReEvent, RePayload, State);
+        noreply ->
+            do_reply(State)
+    end.
 
 do_reply(State) ->
     {ok, State, hibernate}.

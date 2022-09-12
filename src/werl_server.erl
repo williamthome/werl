@@ -9,20 +9,27 @@
 -module(werl_server).
 
 %% API functions
--export([start/0]).
+-export([
+    start/1
+]).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
 
-start() ->
+start(#{app := App, router := Router, idle_timeout := IdleTimeout}) ->
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/css/[...]", cowboy_static, {priv_dir, werl, "static/css"}},
-            {"/js/[...]", cowboy_static, {priv_dir, werl, "static/js"}},
-            {"/websocket", werl_websocket, []},
-            {"/favicon.ico", cowboy_static, {priv_file, werl, "static/favicon.ico"}},
-            {'_', werl_handler, []}
+            {"/css/[...]", cowboy_static,
+                {priv_dir, App, "static/css"}},
+            {"/js/[...]", cowboy_static,
+                {priv_dir, App, "static/js"}},
+            {"/favicon.ico", cowboy_static,
+                {priv_file, App, "static/favicon.ico"}},
+            {"/websocket", werl_websocket,
+                #{router => Router, idle_timeout => IdleTimeout}},
+            {'_', werl_handler,
+                #{router => Router}}
         ]}
     ]),
     {ok, _} = cowboy:start_clear(
@@ -36,4 +43,4 @@ start() ->
 %%% Internal functions
 %%%=============================================================================
 
-% Nothing here yet!
+% nothing here yet!
