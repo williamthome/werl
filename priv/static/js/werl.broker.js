@@ -1,4 +1,4 @@
-function buildWerl(root, topic = "/") {
+function buildWerl(root) {
 
     /* State
     --------------------------------------------------------------------------*/
@@ -50,9 +50,9 @@ function buildWerl(root, topic = "/") {
     /* Socket
     --------------------------------------------------------------------------*/
 
-    function buildWErlSocket() {
+    function buildSocket() {
         /** @type {WebSocket|undefined} */
-        let socket = undefined
+        let _socket = undefined
         const subscribers = []
         const msgQueue = []
 
@@ -61,24 +61,24 @@ function buildWerl(root, topic = "/") {
                 const protocol = "ws"
                 const host = location.host
                 const uri = "/websocket"
-                const url = `${protocol}://${host}${uri}${topic}`
-                socket = new WebSocket(url)
+                const url = `${protocol}://${host}${uri}`
+                _socket = new WebSocket(url)
 
-                socket.onopen = async function () {
+                _socket.onopen = async function () {
                     console.log("WErl socket is connected")
                     await flush()
                     return resolve()
                 }
 
-                socket.onmessage = async function (e) {
+                _socket.onmessage = async function (e) {
                     const msg = e.data
                     const {event, payload} = JSON.parse(msg)
                     await notify(event, payload)
                 }
 
-                socket.onclose = function (e) {
+                _socket.onclose = function (e) {
                     console.log("WErl socket connection closed", e)
-                    socket = undefined
+                    _socket = undefined
                     return resolve()
                 }
             })
@@ -87,7 +87,7 @@ function buildWerl(root, topic = "/") {
         function disconnect() {
             const code = 1000 // normal
             const reason = "WErl socket disconnected"
-            socket.close(code, reason)
+            _socket.close(code, reason)
         }
 
         function on(event, handler) {
@@ -97,20 +97,17 @@ function buildWerl(root, topic = "/") {
         async function cast(event, payload = {}) {
             const data = {event, payload}
             const msg = JSON.stringify(data)
-            msgQueue.push(new Promise((resolve, reject) => {
-                try {
-                    socket?.readyState === WebSocket.OPEN && socket.send(msg)
-                    resolve()
-                } catch(err) {
-                    reject(err)
-                }
+            msgQueue.push(new Promise((resolve) => {
+                _socket?.readyState === WebSocket.OPEN
+                    ? resolve(_socket.send(msg))
+                    : resolve()
             }))
             await flush()
         }
 
 
         async function flush() {
-            (!socket || !socket.readyState === WebSocket.CLOSED) && await connect()
+            (!_socket || !_socket.readyState === WebSocket.CLOSED) && await connect()
 
             await Promise.allSettled(msgQueue)
         }
@@ -118,13 +115,8 @@ function buildWerl(root, topic = "/") {
         async function notify(event, payload) {
             const notifyQueue = subscribers.reduce((acc, subs) => {
                 subs.event === event && acc.push(
-                    new Promise(async (resolve, reject) => {
-                        try {
-                            await subs.handler(payload)
-                            resolve()
-                        } catch (err) {
-                            reject(err)
-                        }
+                    new Promise(async (resolve) => {
+                        resolve(subs.handler(payload))
                     })
                 )
                 return acc
@@ -140,24 +132,24 @@ function buildWerl(root, topic = "/") {
     /* Setup
     --------------------------------------------------------------------------*/
 
-    const werlDom = buildDOM()
-    let werlSocket
+    const dom = buildDOM()
+    let socket
 
     if ("WebSocket" in window) {
-        werlSocket = buildWErlSocket(topic)
+        socket = buildSocket()
 
-        werlSocket.on("ready", () => {
+        socket.on("ready", () => {
             console.log("WErl socket is ready")
         })
 
-        werlSocket.on("render", (bindings) => {
-            werlDom.render(root, state.static, bindings)
+        socket.on("render", (bindings) => {
+            dom.render(root, state.static, bindings)
         })
 
-        werlSocket.connect()
+        socket.connect()
     } else {
         const errorMsg = "WebSocket is not supported by this browser"
-        werlDom.render(root, errorMsg)
+        dom.render(root, errorMsg)
     }
 
     const doesNothing = () => {}
@@ -165,9 +157,9 @@ function buildWerl(root, topic = "/") {
     console.log("WErl built")
 
     return {
-        connect: werlSocket?.connect ?? doesNothing,
-        disconnect: werlSocket?.disconnect ?? doesNothing,
-        on: werlSocket?.on ?? doesNothing,
-        cast: werlSocket?.cast ?? doesNothing,
+        connect: socket?.connect ?? doesNothing,
+        disconnect: socket?.disconnect ?? doesNothing,
+        on: socket?.on ?? doesNothing,
+        cast: socket?.cast ?? doesNothing,
     }
 }
