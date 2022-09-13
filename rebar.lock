@@ -3,7 +3,7 @@
  {<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.11.0">>},1},
  {<<"eel">>,
   {git,"https://github.com/williamthome/eel.git",
-       {ref,"e5dc6f512a6aab2a5b96d2cd80dbdf24c6f3ced2"}},
+       {ref,"7586a43b205f3ac62051ca590ec7ff4895bec25e"}},
   0},
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.9.0">>},0},
  {<<"ranch">>,{pkg,<<"ranch">>,<<"1.8.0">>},1},
