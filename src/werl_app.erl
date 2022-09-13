@@ -22,8 +22,15 @@
 %%%=============================================================================
 
 start(_StartType, _StartArgs) ->
-    ok = werl_server:start(get_env()),
-    werl_sup:start_link().
+    Env = get_env(),
+    ok = werl_server:start(Env),
+    case werl_sup:start_link() of
+        {ok, Pid} ->
+            load_templates(Env),
+            {ok, Pid};
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 stop(_State) ->
     ok.
@@ -37,19 +44,12 @@ priv_dir() ->
 
 get_env() ->
     #{
-        app => get_env_app(),
-        router => get_env_router(),
-        idle_timeout => get_env_idle_timeout()
+        app => get_env_value(app),
+        router => get_env_value(router),
+        renderer => get_env_value(renderer, undefined),
+        idle_timeout => get_env_value(idle_timeout, 60_000),
+        dispatch => get_env_value(dispatch, [])
     }.
-
-get_env_app() ->
-    get_env_value(app).
-
-get_env_router() ->
-    get_env_value(router).
-
-get_env_idle_timeout() ->
-    get_env_value(idle_timeout, 60_000).
 
 get_env_value(Env) ->
     {ok, Value} = application:get_env(werl, Env),
@@ -57,3 +57,8 @@ get_env_value(Env) ->
 
 get_env_value(Env, Default) ->
     application:get_env(werl, Env, Default).
+
+load_templates(#{renderer := undefined}) ->
+    [];
+load_templates(#{app := App, renderer := Renderer}) ->
+    werl_template_sup:load_templates(App, Renderer).

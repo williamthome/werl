@@ -18,8 +18,10 @@
 %% werl types
 
 -record(state, {
+    status :: undefined | ready,
     route :: map(),
-    static :: eel_compile:static()
+    static :: eel_compile:static(),
+    view_state = #{} :: map()
 }).
 
 %%%=============================================================================
@@ -109,24 +111,29 @@ parse_msg(Msg) ->
 
 do_handle(
     #{<<"event">> := <<"ready">>, <<"payload">> := Payload},
-    State0
+    #state{status = undefined} = State0
 ) ->
     io:format("Got ready ~p~n", [Payload]),
     #{<<"static">> := Static} = Payload,
     State = State0#state{
+        status = ready,
         static = Static
     },
     do_reply(State);
 do_handle(
     #{<<"event">> := Event, <<"payload">> := Payload},
-    #state{route = Route} = State
+    #state{route = Route, view_state = ViewState0} = State0
 ) ->
     #{controller := Controller, params := Params} = Route,
-    case erlang:apply(Controller, handle_event, [Event, Payload, Params]) of
-        {reply, ReEvent, RePayload} ->
+    case erlang:apply(Controller, handle_event, [Event, Payload, Params, ViewState0]) of
+        {reply, ReEvent, RePayload, ViewState1} ->
+            ViewState = maps:merge(ViewState0, ViewState1),
+            State = State0#state{
+                view_state = ViewState
+            },
             do_reply(ReEvent, RePayload, State);
         noreply ->
-            do_reply(State)
+            do_reply(State0)
     end.
 
 do_reply(State) ->

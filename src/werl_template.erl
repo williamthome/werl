@@ -3,33 +3,54 @@
 -behaviour(gen_server).
 
 %% API functions
--export([start_link/2]).
--export([render/2, static/1, bindings/1]).
+-export([
+    start_link/2,
+    start_link/3,
+    render/2,
+    compiled/1,
+    static/1,
+    ast/1
+]).
 
 %% GenServer callbacks
--export([init/1, handle_call/3, handle_cast/2]).
+-export([
+    init/1,
+    handle_call/3,
+    handle_cast/2
+]).
 
 -record(state, {
-    compiled = []  :: eel_compile:result(),
-    memo     = #{} :: eel_render:memo()
+    compiled = [] :: eel_compile:result()
 }).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @doc Start link compiling a binary.
+%% @end
+%%------------------------------------------------------------------------------
 -spec start_link(atom(), string() | binary()) -> gen:start_ret().
 
-start_link(TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
-    BaseDir = werl_app:priv_dir(),
-    Template = filename:join([BaseDir, "templates", TemplateFilename]),
-    case file:read_file(Template) of
-        {ok, Html} -> start_link(TemplateId, Html);
-        {error, Reason} -> {error, Reason}
-    end;
-start_link(TemplateId, Html) when is_binary(Html) ->
-    Compiled = eel:compile(Html),
+start_link(TemplateId, Bin) when is_binary(Bin) ->
+    Compiled = eel:compile(Bin),
     InitArgs = [Compiled],
     gen_server:start_link({local, TemplateId}, ?MODULE, InitArgs, []).
+
+%%------------------------------------------------------------------------------
+%% @doc Start link compiling a file.
+%% @end
+%%------------------------------------------------------------------------------
+-spec start_link(atom(), atom(), string() | binary()) -> gen:start_ret().
+
+start_link(App, TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
+    BaseDir = code:priv_dir(App),
+    Template = filename:join([BaseDir, "templates", TemplateFilename]),
+    case file:read_file(Template) of
+        {ok, Bin} -> start_link(TemplateId, Bin);
+        {error, Reason} -> {error, Reason}
+    end.
 
 %%------------------------------------------------------------------------------
 %% @doc Render.
@@ -38,7 +59,26 @@ start_link(TemplateId, Html) when is_binary(Html) ->
 -spec render(atom(), map()) -> {ok, binary()} | {error, term()}.
 
 render(TemplateId, Bindings) ->
-    gen_server:call(TemplateId, {render, Bindings}).
+    Memo = maps:new(),
+    render(TemplateId, Bindings, Memo).
+
+%%------------------------------------------------------------------------------
+%% @doc Render with memo.
+%% @end
+%%------------------------------------------------------------------------------
+-spec render(atom(), map(), eel_render:memo()) -> {ok, binary()} | {error, term()}.
+
+render(TemplateId, Bindings, Memo) ->
+    gen_server:call(TemplateId, {render, Bindings, Memo}).
+
+%%------------------------------------------------------------------------------
+%% @doc Compiled.
+%% @end
+%%------------------------------------------------------------------------------
+-spec compiled(atom()) -> eel_compile:result().
+
+compiled(TemplateId) ->
+    gen_server:call(TemplateId, compiled).
 
 %%------------------------------------------------------------------------------
 %% @doc Static.
@@ -50,13 +90,13 @@ static(TemplateId) ->
     gen_server:call(TemplateId, static).
 
 %%------------------------------------------------------------------------------
-%% @doc Bindings.
+%% @doc AST.
 %% @end
 %%------------------------------------------------------------------------------
--spec bindings(atom()) -> map().
+-spec ast(atom()) -> eel_compile:ast().
 
-bindings(TemplateId) ->
-    gen_server:call(TemplateId, bindings).
+ast(TemplateId) ->
+    gen_server:call(TemplateId, ast).
 
 %%%=============================================================================
 %%% GenServer callbacks
@@ -67,18 +107,16 @@ init([Compiled]) ->
     State = #state{compiled = Compiled},
     {ok, State}.
 
-handle_call(
-    {render, Bindings},
-    _From,
-    #state{compiled = {Static, _AST} = Compiled, memo = Memo} = State0
-) ->
+handle_call({render, Bindings, Memo}, _From, #state{compiled = Compiled} = State) ->
     {Render, NewMemo, Indexes} = eel:render(Compiled, Memo, Bindings),
-    State = State0#state{memo = NewMemo},
-    {reply, {Render, Static, Indexes}, State};
+    {Static, _AST} = Compiled,
+    {reply, {Render, Static, Indexes, NewMemo}, State};
+handle_call(compiled, _From, #state{compiled = Compiled} = State) ->
+    {reply, Compiled, State};
 handle_call(static, _From, #state{compiled = {Static, _}} = State) ->
     {reply, Static, State};
-handle_call(bindings, _From, #state{memo = #{bindings := Bindings}} = State) ->
-    {reply, Bindings, State}.
+handle_call(ast, _From, #state{compiled = {_, AST}} = State) ->
+    {reply, AST, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -87,4 +125,4 @@ handle_cast(_Msg, State) ->
 %%% Internal functions
 %%%=============================================================================
 
-% Nothing here yet!
+% nothing here yet!

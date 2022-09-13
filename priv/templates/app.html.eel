@@ -10,9 +10,7 @@
 
     <link rel="stylesheet" href="css/style.css">
 
-    <script>window.werlStatic = <%= Static .%></script>
-    <script src="js/morphdom.min.js" async></script>
-    <script src="js/werl.broker.js" defer></script>
+    <%= werl_js:script(Static) .%>
     <script src="js/main.js" defer></script>
 </head>
 

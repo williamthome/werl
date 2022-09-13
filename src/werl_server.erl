@@ -17,19 +17,22 @@
 %%% API functions
 %%%=============================================================================
 
-start(#{app := App, router := Router, idle_timeout := IdleTimeout}) ->
+start(#{dispatch := Dispatch0, app := App, router := Router, idle_timeout := IdleTimeout}) ->
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/css/[...]", cowboy_static,
-                {priv_dir, App, "static/css"}},
+            {"/js/[...]", cowboy_static,
+                {priv_dir, werl, "static/js"}},
             {"/js/[...]", cowboy_static,
                 {priv_dir, App, "static/js"}},
+            {"/css/[...]", cowboy_static,
+                {priv_dir, App, "static/css"}},
             {"/favicon.ico", cowboy_static,
                 {priv_file, App, "static/favicon.ico"}},
             {"/websocket", werl_websocket,
                 #{router => Router, idle_timeout => IdleTimeout}},
             {'_', werl_handler,
                 #{router => Router}}
+            | Dispatch0
         ]}
     ]),
     {ok, _} = cowboy:start_clear(
