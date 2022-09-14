@@ -6,7 +6,8 @@
 ]).
 
 -export([
-    handle_event/4
+    handle_event/4,
+    handle_join/2
 ]).
 
 index(Req0, State0, Params) ->
@@ -32,6 +33,9 @@ handle_event(<<"increment">>, _Payload, _Params, State0) ->
     State = State0#{memo => NewMemo},
 
     {reply, <<"render">>, Indexes, State}.
+
+handle_join(_Topic, _Token) ->
+    {ok, <<"Guest">>}.
 
 %%%=============================================================================
 %%% Internal functions

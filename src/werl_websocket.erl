@@ -5,10 +5,12 @@
 %% Callbacks
 -export([
     init/2,
-    terminate/3,
+    broadcast/1,
+    broadcast/2,
     websocket_init/1,
     websocket_handle/2,
-    websocket_info/2
+    websocket_info/2,
+    terminate/3
 ]).
 
 %% cowboy types
@@ -73,15 +75,28 @@ websocket_init(State) ->
 ) ->
     call_result(State).
 
+broadcast(Topic) ->
+    broadcast(Topic, #{}).
+
+broadcast(Topic, Msg) ->
+    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {self(), broadcast, Topic, Msg}).
+
 websocket_handle({text, Msg}, State) ->
     {ok, Data} = parse_msg(Msg),
     do_handle(Data, State).
 
 -spec websocket_info(term(), State) -> call_result(State) when State :: term().
 
-websocket_info({notify, Event}, State) ->
-    do_reply(Event, State);
-websocket_info({notify, Event, Payload}, State) ->
+
+websocket_info({From, joined, Topic, Metadata}, State) ->
+    case From =:= self() of
+        true ->
+            do_reply(State);
+        false ->
+            Payload = #{<<"topic">> => Topic, <<"payload">> => Metadata},
+            do_reply(joined, Payload, State)
+    end;
+websocket_info({_From, broadcast, Event, Payload}, State) ->
     do_reply(Event, Payload, State).
 
 -spec terminate(term(), cowboy_req:req(), term()) -> ok.
@@ -119,6 +134,38 @@ do_handle(
         status = ready,
         static = Static
     },
+    do_reply(State);
+do_handle(
+    #{<<"event">> := <<"join">>, <<"payload">> := Payload},
+    #state{route = #{controller := Controller}} = State
+) ->
+    io:format("Got join ~p~n", [Payload]),
+    #{<<"topic">> := Topic, <<"token">> := Token} = Payload,
+
+    case erlang:apply(Controller, handle_join, [Topic, Token]) of
+        {ok, Metadata} ->
+            case gproc:reg({p, l, {?MODULE, broadcast, Topic}}) of
+                true ->
+                    io:format("Got joined ~p~n", [{Topic, Metadata}]),
+                    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {self(), joined, Topic, Metadata}),
+                    gproc:reg({p, l, {?MODULE, joined, Topic, Metadata}}),
+                    true;
+                _ ->
+                    false
+            end;
+        error ->
+            false
+    end,
+    do_reply(State);
+do_handle(
+    #{<<"event">> := <<"broadcast">>, <<"payload">> := Payload},
+    State
+) ->
+    io:format("Got broadcast ~p~n", [Payload]),
+
+    #{<<"topic">> := Topic, <<"msg">> := Msg} = Payload,
+    broadcast(Topic, Msg),
+
     do_reply(State);
 do_handle(
     #{<<"event">> := Event, <<"payload">> := Payload},

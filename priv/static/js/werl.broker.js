@@ -4,6 +4,7 @@ function buildWerl(root) {
     --------------------------------------------------------------------------*/
 
     const state = new Proxy({
+        ready: false,
         static: window.werlStatic,
     }, {
         get: function (target, name) {
@@ -16,7 +17,7 @@ function buildWerl(root) {
     })
 
     /* DOM
-    --------------------------------------------------------------------------*/
+       -----------------------------------------------------------------------*/
 
     function buildDOM() {
         function assign(static, index, value, recursionCount) {
@@ -48,7 +49,7 @@ function buildWerl(root) {
     }
 
     /* Socket
-    --------------------------------------------------------------------------*/
+       -----------------------------------------------------------------------*/
 
     function buildSocket() {
         /** @type {WebSocket|undefined} */
@@ -131,7 +132,7 @@ function buildWerl(root) {
     }
 
     /* Setup
-    --------------------------------------------------------------------------*/
+       -----------------------------------------------------------------------*/
 
     const dom = buildDOM()
     let socket
@@ -140,6 +141,7 @@ function buildWerl(root) {
         socket = buildSocket()
 
         socket.on("ready", () => {
+            state.ready = true
             console.log("WErl socket is ready")
         })
 
@@ -162,5 +164,18 @@ function buildWerl(root) {
         disconnect: socket?.disconnect ?? doesNothing,
         on: socket?.on ?? doesNothing,
         cast: socket?.cast ?? doesNothing,
+        join: socket ? (topic, token, callback) => {
+            if (typeof token === "function" && !callback) {
+                callback = token
+                token = ""
+            }
+            const payload = {topic, token}
+            if (state.ready) socket.cast("join", payload)
+            else socket.on("ready", () => socket.cast("join", payload))
+            socket.on(topic, callback)
+        } : doesNothing,
+        broadcast: socket ? (topic, msg) => {
+            werl.cast("broadcast", {topic, msg})
+        } : doesNothing,
     }
 }

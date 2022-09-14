@@ -1,4 +1,13 @@
 <div id="app">
     <button onclick="increment();">Increment</button>
     <div>Count: <span><%= Count .%></span></div>
+    <textarea id="chat-msg"></textarea>
+    <button
+        type="button"
+        id="send-chat-msg"
+        onclick="sendChatMsg();"
+        disabled
+    >
+        Send Msg
+    </button>
 </div>
