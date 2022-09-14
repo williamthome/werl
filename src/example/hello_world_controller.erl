@@ -1,5 +1,7 @@
 -module(hello_world_controller).
 
+-behaviour(werl_controller).
+
 -export([
     index/3,
     not_found/3

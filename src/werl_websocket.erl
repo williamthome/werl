@@ -2,23 +2,22 @@
 
 -behaviour(cowboy_websocket).
 
+%% API
+-export([
+    broadcast/1,
+    broadcast/2
+]).
+
 %% Callbacks
 -export([
     init/2,
-    broadcast/1,
-    broadcast/2,
     websocket_init/1,
     websocket_handle/2,
     websocket_info/2,
     terminate/3
 ]).
 
-%% cowboy types
--type commands() :: cowboy_websocket:commands().
--type call_result(State) :: {commands(), State} | {commands(), State, hibernate}.
-
 %% werl types
-
 -record(state, {
     status :: undefined | ready,
     route :: map(),
@@ -26,11 +25,30 @@
     view_state = #{} :: map()
 }).
 
+-type state() :: #state{}.
+
+-type reply() :: {reply, {text, binary()}, state(), hibernate}.
+-type noreply() :: {ok, state(), hibernate}.
+-type handle_return() :: reply() | noreply().
+
+%%%=============================================================================
+%%% API
+%%%=============================================================================
+
+broadcast(Topic) ->
+    broadcast(Topic, #{}).
+
+broadcast(Topic, Msg) ->
+    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {self(), broadcast, Topic, Msg}).
+
 %%%=============================================================================
 %%% Callbacks
 %%%=============================================================================
 
--spec init(Req, map()) -> {ok | module(), Req, term()} | {module(), Req, term(), term()} when
+-spec init(Req, map()) ->
+    {ok | module(), Req, term()}
+    | {module(), Req, term(), term()}
+when
     Req :: cowboy_req:req().
 
 init(Req0, #{router := Router, idle_timeout := WsConnTimeout} = Args) ->
@@ -61,7 +79,7 @@ init(Req0, #{router := Router, idle_timeout := WsConnTimeout} = Args) ->
             end
     end.
 
--spec websocket_init(State) -> call_result(State) when State :: term().
+-spec websocket_init(state()) -> {reply, {text, binary()}, state(), hibernate}.
 
 websocket_init(State) ->
     io:format("init websocket [~p]~n", [self()]),
@@ -71,22 +89,15 @@ websocket_init(State) ->
     ping
     | pong
     | {text | binary | ping | pong, binary()},
-    State
+    state()
 ) ->
-    call_result(State).
-
-broadcast(Topic) ->
-    broadcast(Topic, #{}).
-
-broadcast(Topic, Msg) ->
-    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {self(), broadcast, Topic, Msg}).
+    handle_return().
 
 websocket_handle({text, Msg}, State) ->
     {ok, Data} = parse_msg(Msg),
     do_handle(Data, State).
 
--spec websocket_info(term(), State) -> call_result(State) when State :: term().
-
+-spec websocket_info(term(), state()) -> handle_return().
 
 websocket_info({From, joined, Topic, Metadata}, State) ->
     case From =:= self() of
@@ -147,7 +158,9 @@ do_handle(
             case gproc:reg({p, l, {?MODULE, broadcast, Topic}}) of
                 true ->
                     io:format("Got joined ~p~n", [{Topic, Metadata}]),
-                    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {self(), joined, Topic, Metadata}),
+                    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
+                        self(), joined, Topic, Metadata
+                    }),
                     gproc:reg({p, l, {?MODULE, joined, Topic, Metadata}}),
                     true;
                 _ ->

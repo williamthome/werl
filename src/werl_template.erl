@@ -56,7 +56,8 @@ start_link(App, TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
 %% @doc Render.
 %% @end
 %%------------------------------------------------------------------------------
--spec render(atom(), map()) -> {ok, binary()} | {error, term()}.
+% TODO: Export eel_render types: eel_render:bindings_indexes(), eel_render:memo().
+-spec render(atom(), map()) -> {binary(), eel_compile:static(), map(), map()}.
 
 render(TemplateId, Bindings) ->
     Memo = maps:new(),
@@ -66,7 +67,7 @@ render(TemplateId, Bindings) ->
 %% @doc Render with memo.
 %% @end
 %%------------------------------------------------------------------------------
--spec render(atom(), map(), eel_render:memo()) -> {ok, binary()} | {error, term()}.
+-spec render(atom(), map(), map()) -> {binary(), eel_compile:static(), map(), map()}.
 
 render(TemplateId, Bindings, Memo) ->
     gen_server:call(TemplateId, {render, Bindings, Memo}).
@@ -84,7 +85,7 @@ compiled(TemplateId) ->
 %% @doc Static.
 %% @end
 %%------------------------------------------------------------------------------
--spec static(atom()) -> binary().
+-spec static(atom()) -> eel_compile:static().
 
 static(TemplateId) ->
     gen_server:call(TemplateId, static).
