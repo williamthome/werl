@@ -155,8 +155,12 @@ function buildWerl(root) {
         dom.render(root, errorMsg)
     }
 
+    function broadcast(topic, msg) {
+        werl.cast("broadcast", {topic, msg})
+    }
+
     function join(joinTopic, token, callback) {
-        if (typeof token === "function" && !callback) {
+        if (typeof token !== "string" && !callback) {
             callback = token
             token = ""
         }
@@ -164,29 +168,24 @@ function buildWerl(root) {
         const joinCast = () => socket.cast("join", {topic: joinTopic, token})
         state.ready ? joinCast() : socket.on("ready", joinCast)
 
-        if (typeof callback !== "function") return
-
-        socket.on("joined", ({yourself, topic, payload}) => {
+        callback.onjoined && socket.on("joined", ({yourself, topic, payload}) => {
             if (topic !== joinTopic) return
-            callback({
-                joined: true,
-                yourself,
-                payload
-            })
+            callback.onjoined({yourself, payload})
         })
 
-        socket.on("refused", (topic) => {
+        callback.onleft && socket.on("left", ({yourself, topic, payload}) => {
             if (topic !== joinTopic) return
-            callback({
-                joined: false,
-                yourself: true,
-                payload: undefined
-            })
+            callback.onleft({yourself, payload})
+        })
+
+        callback.onrefused && socket.on("refused", (topic) => {
+            if (topic !== joinTopic) return
+            callback.onrefused()
         })
     }
 
-    function broadcast(topic, msg) {
-        werl.cast("broadcast", {topic, msg})
+    function left(topic) {
+        socket.cast("left", topic)
     }
 
     const doesNothing = () => {}
@@ -198,7 +197,8 @@ function buildWerl(root) {
         disconnect: socket?.disconnect ?? doesNothing,
         on: socket?.on ?? doesNothing,
         cast: socket?.cast ?? doesNothing,
-        join: socket ? join : doesNothing,
         broadcast: socket ? broadcast : doesNothing,
+        join: socket ? join : doesNothing,
+        left: socket ? left : doesNothing,
     }
 }

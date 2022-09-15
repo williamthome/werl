@@ -22,7 +22,8 @@
     status :: undefined | ready,
     route :: map(),
     static :: eel_compile:static(),
-    view_state = #{} :: map()
+    view_state = #{} :: map(),
+    topics = [] :: [{binary(), term()}]
 }).
 
 -type state() :: #state{}.
@@ -106,6 +107,13 @@ websocket_info({From, joined, Topic, Payload}, State) ->
         <<"payload">> => Payload
     },
     do_reply(joined, EventPayload, State);
+websocket_info({From, left, Topic, Payload}, State) ->
+    EventPayload = #{
+        <<"yourself">> => From =:= self(),
+        <<"topic">> => Topic,
+        <<"payload">> => Payload
+    },
+    do_reply(left, EventPayload, State);
 websocket_info({From, broadcast, Event, Payload}, State) ->
     EventPayload = #{
         <<"yourself">> => From =:= self(),
@@ -115,11 +123,21 @@ websocket_info({From, broadcast, Event, Payload}, State) ->
 
 -spec terminate(term(), cowboy_req:req(), term()) -> ok.
 
-terminate(Reason, Req, _State) ->
+terminate(Reason, Req, #state{topics = Topics} = State) ->
     io:format(
-        "websocket connection terminated~n~p~nReason: ~p~n",
-        [maps:get(peer, Req), Reason]
+        "websocket connection terminated~n~p~nReason: ~p~nState: ~p~n",
+        [maps:get(peer, Req), Reason, State]
     ),
+
+    lists:foreach(
+        fun({Topic, Metadata}) ->
+            gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
+                self(), left, Topic, Metadata
+            })
+        end,
+        Topics
+    ),
+
     ok.
 
 %%%=============================================================================
@@ -151,34 +169,42 @@ do_handle(
     do_reply(State);
 do_handle(
     #{<<"event">> := <<"join">>, <<"payload">> := Payload},
-    #state{route = #{controller := Controller}} = State
+    #state{route = #{controller := Controller}} = State0
 ) ->
     io:format("Got join ~p~n", [Payload]),
     #{<<"topic">> := Topic, <<"token">> := Token} = Payload,
 
-    Joined =
-        case erlang:apply(Controller, handle_join, [Topic, Token]) of
-            {ok, Metadata} ->
-                case gproc:reg({p, l, {?MODULE, broadcast, Topic}}) of
-                    true ->
-                        io:format("Got joined ~p~n", [{Topic, Metadata}]),
-                        gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
-                            self(), joined, Topic, Metadata
-                        }),
-                        gproc:reg({p, l, {?MODULE, joined, Topic, Metadata}}),
-                        true;
-                    _ ->
-                        false
-                end;
-            error ->
-                false
-        end,
+    case erlang:apply(Controller, handle_join, [Topic, Token]) of
+        {ok, Metadata} ->
+            case gproc:reg({p, l, {?MODULE, broadcast, Topic}}) of
+                true ->
+                    io:format("Got joined ~p~n", [{Topic, Metadata}]),
+                    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
+                        self(), joined, Topic, Metadata
+                    }),
+                    gproc:reg({p, l, {?MODULE, joined, Topic, Metadata}}),
+                    gproc:reg({p, l, {?MODULE, left, Topic, Metadata}}),
+                    State = State0#state{
+                        topics = [{Topic, Metadata} | State0#state.topics]
+                    },
+                    do_reply(State);
+                _ ->
+                    do_reply(<<"refused">>, Topic, State0)
+            end;
+        error ->
+            do_reply(<<"refused">>, Topic, State0)
+    end;
+do_handle(
+    #{<<"event">> := <<"left">>, <<"payload">> := Topic},
+    #state{topics = Topics} = State
+) ->
+    io:format("Got left ~p~n", [Topic]),
 
-    case Joined of
-        true ->
+    case proplists:get_value(Topic, Topics) of
+        undefined ->
             do_reply(State);
-        false ->
-            do_reply(<<"refused">>, Topic, State)
+        Payload ->
+            do_reply(<<"left">>, Payload, State)
     end;
 do_handle(
     #{<<"event">> := <<"broadcast">>, <<"payload">> := Payload},
