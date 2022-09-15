@@ -37,7 +37,12 @@ handle_event(<<"increment">>, _Payload, _Params, State0) ->
     {reply, <<"render">>, Indexes, State}.
 
 handle_join(_Topic, _Token) ->
-    {ok, <<"Guest">>}.
+    case rand:uniform() < 0.8 of
+        true ->
+            {ok, <<"Guest">>};
+        false ->
+            error
+    end.
 
 %%%=============================================================================
 %%% Internal functions

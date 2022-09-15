@@ -21,9 +21,7 @@ function maybeEnableSendMsgBtn() {
 
 const werl = buildWerl(app)
 
-werl.on("ready", () => {
-    maybeEnableSendMsgBtn()
-})
+werl.on("ready", maybeEnableSendMsgBtn)
 
 werl.on("render", () => {
     console.log("Received render")
@@ -33,6 +31,14 @@ werl.on("joined", ({topic, payload: someone}) => {
     switch(topic) {
         case "/chat":
             console.log(someone, "joined the chat")
+            break
+    }
+})
+
+werl.on("refused", (topic) => {
+    switch(topic) {
+        case "/chat":
+            alert("Not allowed to join the chat.")
             break
     }
 })

@@ -153,23 +153,30 @@ do_handle(
     io:format("Got join ~p~n", [Payload]),
     #{<<"topic">> := Topic, <<"token">> := Token} = Payload,
 
-    case erlang:apply(Controller, handle_join, [Topic, Token]) of
-        {ok, Metadata} ->
-            case gproc:reg({p, l, {?MODULE, broadcast, Topic}}) of
-                true ->
-                    io:format("Got joined ~p~n", [{Topic, Metadata}]),
-                    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
-                        self(), joined, Topic, Metadata
-                    }),
-                    gproc:reg({p, l, {?MODULE, joined, Topic, Metadata}}),
-                    true;
-                _ ->
-                    false
-            end;
-        error ->
-            false
-    end,
-    do_reply(State);
+    Joined =
+        case erlang:apply(Controller, handle_join, [Topic, Token]) of
+            {ok, Metadata} ->
+                case gproc:reg({p, l, {?MODULE, broadcast, Topic}}) of
+                    true ->
+                        io:format("Got joined ~p~n", [{Topic, Metadata}]),
+                        gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
+                            self(), joined, Topic, Metadata
+                        }),
+                        gproc:reg({p, l, {?MODULE, joined, Topic, Metadata}}),
+                        true;
+                    _ ->
+                        false
+                end;
+            error ->
+                false
+        end,
+
+    case Joined of
+        true ->
+            do_reply(State);
+        false ->
+            do_reply(<<"refused">>, Topic, State)
+    end;
 do_handle(
     #{<<"event">> := <<"broadcast">>, <<"payload">> := Payload},
     State
