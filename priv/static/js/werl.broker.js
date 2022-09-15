@@ -155,6 +155,40 @@ function buildWerl(root) {
         dom.render(root, errorMsg)
     }
 
+    function join(joinTopic, token, callback) {
+        if (typeof token === "function" && !callback) {
+            callback = token
+            token = ""
+        }
+
+        const joinCast = () => socket.cast("join", {topic: joinTopic, token})
+        state.ready ? joinCast() : socket.on("ready", joinCast)
+
+        if (typeof callback !== "function") return
+
+        socket.on("joined", ({yourself, topic, payload}) => {
+            if (topic !== joinTopic) return
+            callback({
+                joined: true,
+                yourself,
+                payload
+            })
+        })
+
+        socket.on("refused", (topic) => {
+            if (topic !== joinTopic) return
+            callback({
+                joined: false,
+                yourself: true,
+                payload: undefined
+            })
+        })
+    }
+
+    function broadcast(topic, msg) {
+        werl.cast("broadcast", {topic, msg})
+    }
+
     const doesNothing = () => {}
 
     console.log("WErl built")
@@ -164,18 +198,7 @@ function buildWerl(root) {
         disconnect: socket?.disconnect ?? doesNothing,
         on: socket?.on ?? doesNothing,
         cast: socket?.cast ?? doesNothing,
-        join: socket ? (topic, token, callback) => {
-            if (typeof token === "function" && !callback) {
-                callback = token
-                token = ""
-            }
-            const payload = {topic, token}
-            if (state.ready) socket.cast("join", payload)
-            else socket.on("ready", () => socket.cast("join", payload))
-            socket.on(topic, callback)
-        } : doesNothing,
-        broadcast: socket ? (topic, msg) => {
-            werl.cast("broadcast", {topic, msg})
-        } : doesNothing,
+        join: socket ? join : doesNothing,
+        broadcast: socket ? broadcast : doesNothing,
     }
 }

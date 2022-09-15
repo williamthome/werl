@@ -23,30 +23,15 @@ const werl = buildWerl(app)
 
 werl.on("ready", maybeEnableSendMsgBtn)
 
-werl.on("accepted", (topic) => {
-    switch(topic) {
-        case "/chat":
-            console.info("Your invite to the chat was accepted.")
-            break
-    }
-})
+werl.join("/chat", ({joined, yourself, payload: someone}) => {
+    if (!joined) return alert("Not allowed to join the chat.")
 
-werl.on("refused", (topic) => {
-    switch(topic) {
-        case "/chat":
-            alert("Not allowed to join the chat.")
-            break
+    if (yourself) {
+        console.info("Your invite to the chat was accepted.")
+        werl.on("/chat", ({yourself, payload: msg}) => {
+            !yourself && console.log("Msg received via '/chat'", msg)
+        })
+    } else {
+        console.info(someone, "joined the chat")
     }
-})
-
-werl.on("joined", ({topic, payload: someone}) => {
-    switch(topic) {
-        case "/chat":
-            console.info(someone, "joined the chat")
-            break
-    }
-})
-
-werl.join("/chat", (msg) => {
-    console.log("Msg received via '/chat'", msg)
 })

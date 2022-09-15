@@ -99,16 +99,19 @@ websocket_handle({text, Msg}, State) ->
 
 -spec websocket_info(term(), state()) -> handle_return().
 
-websocket_info({From, joined, Topic, Metadata}, State) ->
-    case From =:= self() of
-        true ->
-            do_reply(State);
-        false ->
-            Payload = #{<<"topic">> => Topic, <<"payload">> => Metadata},
-            do_reply(joined, Payload, State)
-    end;
-websocket_info({_From, broadcast, Event, Payload}, State) ->
-    do_reply(Event, Payload, State).
+websocket_info({From, joined, Topic, Payload}, State) ->
+    EventPayload = #{
+        <<"yourself">> => From =:= self(),
+        <<"topic">> => Topic,
+        <<"payload">> => Payload
+    },
+    do_reply(joined, EventPayload, State);
+websocket_info({From, broadcast, Event, Payload}, State) ->
+    EventPayload = #{
+        <<"yourself">> => From =:= self(),
+        <<"payload">> => Payload
+    },
+    do_reply(Event, EventPayload, State).
 
 -spec terminate(term(), cowboy_req:req(), term()) -> ok.
 
@@ -173,7 +176,7 @@ do_handle(
 
     case Joined of
         true ->
-            do_reply(<<"accepted">>, Topic, State);
+            do_reply(State);
         false ->
             do_reply(<<"refused">>, Topic, State)
     end;
