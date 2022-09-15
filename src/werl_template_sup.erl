@@ -24,10 +24,12 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-% TODO: start_child spec
+-spec start_child(atom(), binary()) -> supervisor:startchild_ret().
 
 start_child(Id, Bin) ->
     supervisor:start_child(?MODULE, [Id, Bin]).
+
+-spec start_child(atom(), atom(), file:filename_all()) -> supervisor:startchild_ret().
 
 start_child(App, Id, FileName) ->
     supervisor:start_child(?MODULE, [App, Id, FileName]).

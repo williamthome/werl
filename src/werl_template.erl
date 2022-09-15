@@ -31,7 +31,7 @@
 %% @doc Start link compiling a binary.
 %% @end
 %%------------------------------------------------------------------------------
--spec start_link(atom(), string() | binary()) -> gen:start_ret().
+-spec start_link(atom(), binary()) -> gen:start_ret().
 
 start_link(TemplateId, Bin) when is_binary(Bin) ->
     Compiled = eel:compile(Bin),
@@ -42,7 +42,7 @@ start_link(TemplateId, Bin) when is_binary(Bin) ->
 %% @doc Start link compiling a file.
 %% @end
 %%------------------------------------------------------------------------------
--spec start_link(atom(), atom(), string() | binary()) -> gen:start_ret().
+-spec start_link(atom(), atom(), file:filename_all()) -> gen:start_ret().
 
 start_link(App, TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
     BaseDir = code:priv_dir(App),
