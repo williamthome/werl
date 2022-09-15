@@ -173,7 +173,7 @@ do_handle(
 
     case Joined of
         true ->
-            do_reply(State);
+            do_reply(<<"accepted">>, Topic, State);
         false ->
             do_reply(<<"refused">>, Topic, State)
     end;
