@@ -56,8 +56,8 @@ start_link(App, TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
 %% @doc Render.
 %% @end
 %%------------------------------------------------------------------------------
-% TODO: Export eel_render types: eel_render:bindings_indexes(), eel_render:memo().
--spec render(atom(), map()) -> {binary(), eel_compile:static(), map(), map()}.
+-spec render(atom(), map()) ->
+    {binary(), eel_compile:static(), eel_render:bindings_indexes(), eel_render:memo()}.
 
 render(TemplateId, Bindings) ->
     Memo = maps:new(),
