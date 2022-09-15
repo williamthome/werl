@@ -49,4 +49,4 @@ init([]) ->
 %%% Internal functions
 %%%=============================================================================
 
-% Nothing here yet!
+% nothing here yet!
