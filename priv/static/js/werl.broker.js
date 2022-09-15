@@ -168,14 +168,14 @@ function buildWerl(root) {
         const joinCast = () => socket.cast("join", {topic: joinTopic, token})
         state.ready ? joinCast() : socket.on("ready", joinCast)
 
-        callback.onjoined && socket.on("joined", ({yourself, topic, payload}) => {
+        callback.onjoined && socket.on("joined", ({yourself, payload: topic, metadata}) => {
             if (topic !== joinTopic) return
-            callback.onjoined({yourself, payload})
+            callback.onjoined({yourself, payload: metadata})
         })
 
-        callback.onleft && socket.on("left", ({yourself, topic, payload}) => {
+        callback.onleft && socket.on("left", ({yourself, payload: topic, metadata}) => {
             if (topic !== joinTopic) return
-            callback.onleft({yourself, payload})
+            callback.onleft({yourself, payload: metadata})
         })
 
         callback.onrefused && socket.on("refused", (topic) => {
