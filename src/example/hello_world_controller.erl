@@ -9,6 +9,7 @@
 
 -export([
     handle_event/4,
+    handle_call/3,
     handle_join/2
 ]).
 
@@ -35,6 +36,12 @@ handle_event(<<"increment">>, _Payload, _Params, State0) ->
     State = State0#{memo => NewMemo},
 
     {reply, <<"render">>, Indexes, State}.
+
+handle_call({Event, Payload}, _From, State) ->
+    io:format("Got handle_call ~p~n", [{Event, Payload}]),
+
+    Reply = <<"Hello, World!">>,
+    {reply, Reply, State}.
 
 handle_join(_Topic, _Token) ->
     case rand:uniform() < 0.8 of

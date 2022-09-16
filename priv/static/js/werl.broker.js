@@ -56,6 +56,7 @@ function buildWerl(root) {
         let _socket = undefined
         const subscribers = []
         const msgQueue = []
+        const callbacks = []
 
         function connect() {
             return new Promise((resolve) => {
@@ -68,14 +69,15 @@ function buildWerl(root) {
 
                 _socket.onopen = async function () {
                     console.log("WErl socket is connected")
-                    // await cast("ready", state)
                     return resolve()
                 }
 
                 _socket.onmessage = async function (e) {
                     const msg = e.data
                     const {event, payload} = JSON.parse(msg)
-                    await notify(event, payload)
+                    event === "call"
+                        ? await flushCall(payload)
+                        : await flushBroadcast(event, payload)
                 }
 
                 _socket.onclose = function (e) {
@@ -104,18 +106,51 @@ function buildWerl(root) {
                     ? resolve(_socket.send(msg))
                     : resolve()
             }))
-            await flush()
+            await flushCast()
         }
 
-
-        async function flush() {
+        async function flushCast() {
             (!_socket || !_socket.readyState === WebSocket.CLOSED) && await connect()
 
             await Promise.allSettled(msgQueue)
         }
 
-        async function notify(event, payload) {
-            const notifyQueue = subscribers.reduce((acc, subs) => {
+        function call(event, payload, callback) {
+            if (typeof payload === "function" && !callback) {
+                callback = payload
+                payload = {}
+            }
+
+            const index = callbacks.findIndex((cbs) => event in cbs)
+            if (index === -1) {
+                callbacks.push({[event]: [callback]})
+            } else {
+                const cbs = callbacks[index][event]
+                const cbIndex = cbs.findIndex((cb) => cb.toString() == callback.toString())
+                cbIndex === -1 && cbs.push(callback)
+            }
+
+            const data = {event: "call", payload: {event, payload}}
+            const msg = JSON.stringify(data)
+
+            _socket.send(msg)
+        }
+
+        async function flushCall({event, payload}) {
+            const callbackQueue = callbacks.reduce((acc, cbs) => {
+                event in cbs && cbs[event].forEach((cb) => acc.push(
+                    new Promise(async (resolve) => {
+                        resolve(cb(payload))
+                    })
+                ))
+                return acc
+            }, [])
+            await Promise.allSettled(callbackQueue)
+            callbacks.length = 0
+        }
+
+        async function flushBroadcast(event, payload) {
+            const handlers = subscribers.reduce((acc, subs) => {
                 subs.event === event && acc.push(
                     new Promise(async (resolve) => {
                         resolve(subs.handler(payload))
@@ -123,12 +158,12 @@ function buildWerl(root) {
                 )
                 return acc
             }, [])
-            await Promise.allSettled(notifyQueue)
+            await Promise.allSettled(handlers)
         }
 
         console.log("WErl socket built")
 
-        return { connect, disconnect, on, cast }
+        return { connect, disconnect, on, call, cast }
     }
 
     /* Setup
@@ -196,6 +231,7 @@ function buildWerl(root) {
         connect: socket?.connect ?? doesNothing,
         disconnect: socket?.disconnect ?? doesNothing,
         on: socket?.on ?? doesNothing,
+        call: socket?.call ?? doesNothing,
         cast: socket?.cast ?? doesNothing,
         broadcast: socket ? broadcast : doesNothing,
         join: socket ? join : doesNothing,

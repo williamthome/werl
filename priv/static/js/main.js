@@ -1,27 +1,53 @@
 const app = document.getElementById("app")
-const chatMsgTxtArea = document.getElementById("chat-msg")
-const sendChatMsgBtn = document.getElementById("send-chat-msg")
+const msgs = document.getElementById("msgs")
+const msgForm = document.getElementById("msg-form")
 
-chatMsgTxtArea.addEventListener("input", maybeEnableSendMsgBtn)
+const state = new Proxy({
+    onlineCount: 0
+}, {
+    get: function (target, name) {
+        return target[name]
+    },
+    set: function (obj, prop, value) {
+        obj[prop] = value;
+        return true
+    },
+})
 
-function sendChatMsg() {
-    werl.broadcast("/chat", chatMsgTxtArea.value)
-}
+msgForm.addEventListener("submit", (e) => {
+    e.preventDefault()
+
+    const msg = new FormData(msgForm).get("msg")
+
+    const msgElem = document.createElement("div")
+    msgElem.innerText = msg
+    msgs.appendChild(msgElem)
+
+    werl.broadcast("/chat", msg)
+
+    msgForm.reset()
+})
 
 function increment() {
     werl.cast("increment")
 }
 
-function maybeEnableSendMsgBtn() {
-    sendChatMsgBtn.disabled = !chatMsgTxtArea.value
+function callback() {
+    werl.call("callback", (msg) => {
+        console.log("Got callback", msg)
+    })
+}
+
+function callback2() {
+    werl.call("callback", (msg) => {
+        console.log("Got callback2", msg)
+    })
 }
 
 /* WErl
    ---------------------------------------------------------------------------*/
 
 const werl = buildWerl(app)
-
-werl.on("ready", maybeEnableSendMsgBtn)
 
 werl.join("/chat", {
     onjoined: ({yourself, payload: someone}) => {

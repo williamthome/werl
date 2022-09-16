@@ -1,13 +1,18 @@
 <div id="app">
+
+    <div class="chat">
+        <div id="online-count">0</div>
+        <div id="msgs"></div>
+
+        <form id="msg-form">
+            <input name="msg"/>
+            <button>Send</button>
+        </form>
+    </div>
+
     <button onclick="increment();">Increment</button>
     <div>Count: <span><%= Count .%></span></div>
-    <textarea id="chat-msg"></textarea>
-    <button
-        type="button"
-        id="send-chat-msg"
-        onclick="sendChatMsg();"
-        disabled
-    >
-        Send Msg
-    </button>
+
+    <button onclick="callback();">Callback1</button>
+    <button onclick="callback2();">Callback2</button>
 </div>

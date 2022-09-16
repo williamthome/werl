@@ -189,6 +189,24 @@ do_handle(
 
     do_reply(State);
 do_handle(
+    #{<<"event">> := <<"call">>, <<"payload">> := Payload},
+    #state{route = #{controller := Controller}} = State
+) ->
+    io:format("Got call ~p~n", [Payload]),
+
+    #{<<"event">> := CbEvent, <<"payload">> := CbPayload} = Payload,
+    {reply, Reply, NewState} =
+        erlang:apply(Controller, handle_call, [{CbEvent, CbPayload}, self(), State]),
+
+    Callback = #{
+        <<"event">> => CbEvent,
+        <<"payload">> => Reply
+    },
+
+    io:format("Calling ~p~n", [Reply]),
+
+    do_reply(<<"call">>, Callback, NewState);
+do_handle(
     #{<<"event">> := Event, <<"payload">> := Payload},
     #state{route = Route, view_state = ViewState0} = State0
 ) ->
