@@ -190,10 +190,6 @@ function buildWerl(root) {
         dom.render(root, errorMsg)
     }
 
-    function broadcast(topic, msg) {
-        werl.cast("broadcast", {topic, msg})
-    }
-
     function join(joinTopic, token, callback) {
         if (typeof token !== "string" && !callback) {
             callback = token
@@ -219,6 +215,10 @@ function buildWerl(root) {
         })
     }
 
+    function broadcast(topic, msg) {
+        werl.cast("broadcast", {topic, msg})
+    }
+
     function left(topic) {
         socket.cast("left", topic)
     }
@@ -233,8 +233,8 @@ function buildWerl(root) {
         on: socket?.on ?? doesNothing,
         call: socket?.call ?? doesNothing,
         cast: socket?.cast ?? doesNothing,
-        broadcast: socket ? broadcast : doesNothing,
         join: socket ? join : doesNothing,
+        broadcast: socket ? broadcast : doesNothing,
         left: socket ? left : doesNothing,
     }
 }
