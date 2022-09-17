@@ -6,7 +6,8 @@
 -export([
     start_link/2,
     start_link/3,
-    render/2,
+    render/3,
+    render/4,
     compiled/1,
     static/1,
     ast/1
@@ -56,21 +57,22 @@ start_link(App, TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
 %% @doc Render.
 %% @end
 %%------------------------------------------------------------------------------
--spec render(atom(), map()) ->
+-spec render(atom(), eel_render:memo(), map()) ->
     {binary(), eel_compile:static(), eel_render:bindings_indexes(), eel_render:memo()}.
 
-render(TemplateId, Bindings) ->
+render(TemplateId, Bindings, Context) ->
     Memo = maps:new(),
-    render(TemplateId, Bindings, Memo).
+    render(TemplateId, Bindings, Memo, Context).
 
 %%------------------------------------------------------------------------------
 %% @doc Render with memo.
 %% @end
 %%------------------------------------------------------------------------------
--spec render(atom(), map(), map()) -> {binary(), eel_compile:static(), map(), map()}.
+-spec render(atom(), eel_render:bindings(), eel_render:memo(), map()) ->
+    {binary(), eel_compile:static(), map(), map()}.
 
-render(TemplateId, Bindings, Memo) ->
-    gen_server:call(TemplateId, {render, Bindings, Memo}).
+render(TemplateId, Bindings, Memo, Context) ->
+    gen_server:call(TemplateId, {render, Bindings, Memo, Context}).
 
 %%------------------------------------------------------------------------------
 %% @doc Compiled.
@@ -108,9 +110,13 @@ init([Compiled]) ->
     State = #state{compiled = Compiled},
     {ok, State}.
 
-handle_call({render, Bindings, Memo}, _From, #state{compiled = Compiled} = State) ->
+handle_call({render, Bindings0, Memo, Context}, _From, #state{compiled = Compiled} = State) ->
+    Bindings = Bindings0#{'Context' => Context},
     {Render, NewMemo, Indexes} = eel:render(Compiled, Memo, Bindings),
     {Static, _AST} = Compiled,
+
+io:format("Got render ~p~n", [{Compiled}]),
+
     {reply, {Render, Static, Indexes, NewMemo}, State};
 handle_call(compiled, _From, #state{compiled = Compiled} = State) ->
     {reply, Compiled, State};

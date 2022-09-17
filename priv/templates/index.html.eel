@@ -15,4 +15,7 @@
 
     <button onclick="callback();">Callback1</button>
     <button onclick="callback2();">Callback2</button>
+
+    <div>Context: <span><%= Context .%><span></div>
+    <div>Query: <span><%= werl_context:query(<<"foo">>, <<"No foo query in the URL">>) .%></span></div>
 </div>

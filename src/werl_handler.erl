@@ -22,8 +22,13 @@ init(Req0, #{router := Router} = State0) ->
     Path = cowboy_req:path(Req0),
     case werl_router:route_info(Router, Method, Path) of
         {ok, #{controller := Controller, action := Action, params := Params}} ->
-            io:format("router found [~p]~n", [{Controller, Action, Params}]),
-            erlang:apply(Controller, Action, [Req0, State0, Params]);
+            Queries = maps:from_list(cowboy_req:parse_qs(Req0)),
+            io:format("router found [~p]~n", [{Controller, Action, Params, Queries}]),
+            Context = #{
+                params => Params,
+                queries => Queries
+            },
+            erlang:apply(Controller, Action, [Req0, State0, Context]);
         {error, no_match} ->
             Req = cowboy_req:reply(404, Req0),
             {ok, Req, State0}

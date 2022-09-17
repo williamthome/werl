@@ -99,13 +99,12 @@ websocket_handle({text, Msg}, State) ->
 
 -spec websocket_info(term(), state()) -> handle_return().
 
-websocket_info({From, broadcast, Event, {Payload0, Meta}}, State) ->
-    io:format("Got broadcast ~p~n", [{From, Event, Payload0, Meta}]),
+websocket_info({From, broadcast, Event, EventPayload}, State) ->
+    io:format("Got broadcast ~p~n", [{From, Event, EventPayload}]),
 
     Payload = #{
         <<"yourself">> => From =:= self(),
-        <<"payload">> => Payload0,
-        <<"metadata">> => Meta
+        <<"payload">> => EventPayload
     },
     do_reply(Event, Payload, State).
 
@@ -123,9 +122,11 @@ terminate(Reason, Req, State) ->
 
     lists:foreach(
         fun({Topic, Meta}) ->
-            gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
-                self(), broadcast, left, {Topic, Meta}
-            })
+            BCastPayload = #{
+                <<"topic">> => Topic,
+                <<"payload">> => Meta
+            },
+            broadcast(left, BCastPayload)
         end,
         Topics
     ),
@@ -170,9 +171,12 @@ do_handle(
             io:format("Got joined ~p~n", [{Topic, Meta}]),
 
             true = gproc:reg({p, l, {?MODULE, broadcast, Topic}}, {Topic, Meta}),
-            gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
-                self(), broadcast, joined, {Topic, Meta}
-            }),
+
+            BCastPayload = #{
+                <<"topic">> => Topic,
+                <<"payload">> => Meta
+            },
+            broadcast(joined, BCastPayload),
 
             do_reply(State);
         error ->
@@ -208,10 +212,9 @@ do_handle(
     do_reply(<<"call">>, Callback, NewState);
 do_handle(
     #{<<"event">> := Event, <<"payload">> := Payload},
-    #state{route = Route, view_state = ViewState0} = State0
+    #state{route = #{controller := Controller}, view_state = ViewState0} = State0
 ) ->
-    #{controller := Controller, params := Params} = Route,
-    case erlang:apply(Controller, handle_event, [Event, Payload, Params, ViewState0]) of
+    case erlang:apply(Controller, handle_event, [Event, Payload, ViewState0]) of
         {reply, ReEvent, RePayload, ViewState1} ->
             ViewState = maps:merge(ViewState0, ViewState1),
             State = State0#state{

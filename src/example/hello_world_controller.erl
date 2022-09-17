@@ -8,21 +8,21 @@
 ]).
 
 -export([
-    handle_event/4,
+    handle_event/3,
     handle_call/3,
     handle_join/2
 ]).
 
-index(Req0, State0, Params) ->
+index(Req0, State0, Context) ->
     Bindings = #{'Count' => 0},
-    {Body, Static, _, _} = werl_template:render(home, Bindings),
-    req_render(Body, Static, Req0, State0, Params).
+    {Body, Static, _, _} = werl_template:render(home, Bindings, Context),
+    req_render(Body, Static, Req0, State0, Context).
 
-not_found(Req0, State0, Params) ->
+not_found(Req0, State0, Context) ->
     Body = <<"Oops! Page not found :(">>,
-    req_render(Body, [], Req0, State0, Params).
+    req_render(Body, [], Req0, State0, Context).
 
-handle_event(<<"increment">>, _Payload, _Params, State0) ->
+handle_event(<<"increment">>, _Payload, State0) ->
     io:format("Got increment~n"),
 
     Count =
@@ -55,11 +55,13 @@ handle_join(_Topic, _Token) ->
 %%% Internal functions
 %%%=============================================================================
 
-req_render(Body, Static, Req0, State, _Params) ->
+req_render(Body, Static, Req0, State, Context) ->
+    io:format("~n~n~n~n CONTEXT ~p~n~n~n", [Context]),
+
     {HTML, _, _, _} = werl_template:render(app, #{
         'Title' => <<"WErl">>,
         'Static' => werl_json:encode(Static),
         'InnerContent' => Body
-    }),
+    }, Context),
     Req = cowboy_req:reply(200, #{<<"content-type">> => <<"text/html">>}, HTML, Req0),
     {ok, Req, State}.
