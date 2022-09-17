@@ -213,6 +213,8 @@ function buildWerl(root) {
             if (topic !== joinTopic) return
             callback.onrefused()
         })
+
+        callback.onmsg && socket.on(joinTopic, callback.onmsg)
     }
 
     function broadcast(topic, msg) {
