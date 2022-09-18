@@ -56,8 +56,6 @@ handle_join(_Topic, _Token) ->
 %%%=============================================================================
 
 req_render(Body, Static, Req0, State, Context) ->
-    io:format("~n~n~n~n CONTEXT ~p~n~n~n", [Context]),
-
     {HTML, _, _, _} = werl_template:render(app, #{
         'Title' => <<"WErl">>,
         'Static' => werl_json:encode(Static),

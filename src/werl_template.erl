@@ -114,9 +114,6 @@ handle_call({render, Bindings0, Memo, Context}, _From, #state{compiled = Compile
     Bindings = Bindings0#{'Context' => Context},
     {Render, NewMemo, Indexes} = eel:render(Compiled, Memo, Bindings),
     {Static, _AST} = Compiled,
-
-io:format("Got render ~p~n", [{Compiled}]),
-
     {reply, {Render, Static, Indexes, NewMemo}, State};
 handle_call(compiled, _From, #state{compiled = Compiled} = State) ->
     {reply, Compiled, State};
