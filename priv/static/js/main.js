@@ -53,9 +53,6 @@ werl.join("/chat", {
     onjoined: ({yourself, payload: someone}) => {
         if (yourself) {
             console.info("Your invite to the chat was accepted.")
-            werl.on("/chat", ({yourself, payload: msg}) => {
-                !yourself && console.log("Msg received via '/chat'", msg)
-            })
         } else {
             console.info(someone, "joined the chat")
         }
@@ -66,7 +63,7 @@ werl.join("/chat", {
             : console.info(someone, "left the chat")
     },
     onrefused: () => alert("Not allowed to join the chat."),
-    onmsg: ({yourself, payload: msg}) => {
-        !yourself && console.info("Received chat msg:", msg)
+    onmsg: ({yourself, payload: msg, state: from}) => {
+        !yourself && console.info("Received msg", `'${msg}'`, "from", from)
     },
 })

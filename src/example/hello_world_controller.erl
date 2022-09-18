@@ -46,7 +46,9 @@ handle_call({Event, Payload}, _From, State) ->
 handle_join(_Topic, _Token) ->
     case rand:uniform() < 0.8 of
         true ->
-            {ok, <<"Guest">>};
+            Rand = erlang:integer_to_binary(rand:uniform(9_999)),
+            Username = <<"User", Rand/binary>>,
+            {ok, Username};
         false ->
             error
     end.

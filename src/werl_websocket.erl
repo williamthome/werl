@@ -1,12 +1,15 @@
+% @doc
+% event = local (something to be handled)
+% topic = global (broadcast related)
+%
+% call = get something
+% broadcast = global publish (gproc)
+% join = subscribe
+% left = unsubscribe
+% @end
 -module(werl_websocket).
 
 -behaviour(cowboy_websocket).
-
-%% API
--export([
-    broadcast/1,
-    broadcast/2
-]).
 
 %% Callbacks
 -export([
@@ -30,16 +33,6 @@
 -type reply() :: {reply, {text, binary()}, state(), hibernate}.
 -type noreply() :: {ok, state(), hibernate}.
 -type handle_return() :: reply() | noreply().
-
-%%%=============================================================================
-%%% API
-%%%=============================================================================
-
-broadcast(Event) ->
-    broadcast(Event, #{}).
-
-broadcast(Event, Payload) ->
-    gproc:send({p, l, {?MODULE, broadcast, Event}}, {self(), broadcast, Event, Payload}).
 
 %%%=============================================================================
 %%% Callbacks
@@ -101,10 +94,17 @@ websocket_handle({text, Msg}, State) ->
 websocket_info({From, broadcast, Event, EventPayload}, State) ->
     io:format("Got broadcast ~p~n", [{From, Event, EventPayload}]),
 
+    EventSubscribers = gproc:lookup_values({p, l, {?MODULE, broadcast, Event}}),
+    FromStates = proplists:get_all_values(From, EventSubscribers),
+    FromEventState = proplists:get_value(Event, FromStates),
+
     Payload = #{
         <<"yourself">> => From =:= self(),
-        <<"payload">> => EventPayload
+        <<"payload">> => EventPayload,
+        <<"state">> => FromEventState
     },
+    io:format("Broadcasting ~p~n", [{Event, Payload}]),
+
     do_reply(Event, Payload, State).
 
 -spec terminate(term(), cowboy_req:req(), term()) -> ok.
@@ -125,7 +125,9 @@ terminate(Reason, Req, State) ->
                 <<"topic">> => Topic,
                 <<"payload">> => Meta
             },
-            broadcast(left, BCastPayload)
+            gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
+                self(), broadcast, left, BCastPayload
+            })
         end,
         Topics
     ),
@@ -149,7 +151,10 @@ parse_msg(Msg) ->
     end.
 
 do_handle(
-    #{<<"event">> := <<"ready">>, <<"payload">> := Payload},
+    #{
+        <<"event">> := <<"ready">>,
+        <<"payload">> := Payload
+    },
     #state{status = undefined} = State0
 ) ->
     io:format("Got ready ~p~n", [Payload]),
@@ -160,7 +165,10 @@ do_handle(
     },
     do_reply(State);
 do_handle(
-    #{<<"event">> := <<"join">>, <<"payload">> := Payload},
+    #{
+        <<"event">> := <<"join">>,
+        <<"payload">> := Payload
+    },
     #state{route = #{controller := Controller}} = State
 ) ->
     io:format("Got join ~p~n", [Payload]),
@@ -175,29 +183,42 @@ do_handle(
                 <<"topic">> => Topic,
                 <<"payload">> => Meta
             },
-            broadcast(joined, BCastPayload),
+            gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
+                self(), broadcast, joined, BCastPayload
+            }),
 
             do_reply(State);
         error ->
             do_reply(<<"refused">>, Topic, State)
     end;
 do_handle(
-    #{<<"event">> := <<"broadcast">>, <<"payload">> := Payload},
+    #{
+        <<"event">> := <<"broadcast">>,
+        <<"payload">> := Payload
+    },
     State
 ) ->
     io:format("Got broadcast ~p~n", [Payload]),
 
     #{<<"topic">> := Topic, <<"msg">> := Msg} = Payload,
-    broadcast(Topic, Msg),
+    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
+        self(), broadcast, Topic, Msg
+    }),
 
     do_reply(State);
 do_handle(
-    #{<<"event">> := <<"call">>, <<"payload">> := Payload},
+    #{
+        <<"event">> := <<"call">>,
+        <<"payload">> := Payload
+    },
     #state{route = #{controller := Controller}} = State
 ) ->
     io:format("Got call ~p~n", [Payload]),
 
-    #{<<"event">> := CbEvent, <<"payload">> := CbPayload} = Payload,
+    #{
+        <<"event">> := CbEvent,
+        <<"payload">> := CbPayload
+    } = Payload,
     {reply, Reply, NewState} =
         erlang:apply(Controller, handle_call, [{CbEvent, CbPayload}, self(), State]),
 
@@ -210,7 +231,10 @@ do_handle(
 
     do_reply(<<"call">>, Callback, NewState);
 do_handle(
-    #{<<"event">> := Event, <<"payload">> := Payload},
+    #{
+        <<"event">> := Event,
+        <<"payload">> := Payload
+    },
     #state{route = #{controller := Controller}, view_state = ViewState0} = State0
 ) ->
     case erlang:apply(Controller, handle_event, [Event, Payload, ViewState0]) of
