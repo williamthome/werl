@@ -48,7 +48,7 @@ get_env() ->
         router => get_env_value(router),
         renderer => get_env_value(renderer, undefined),
         ws_options => get_env_value(ws_options, #{}),
-        dispatch => get_env_value(dispatch, [])
+        dispatcher => get_env_value(dispatcher, undefined)
     }.
 
 get_env_value(Env) ->

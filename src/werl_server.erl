@@ -17,33 +17,33 @@
 %%% API functions
 %%%=============================================================================
 
-start(#{dispatch := Dispatch0, app := App, router := Router, ws_options := WSOptions}) ->
-    Dispatch = cowboy_router:compile([
-        {'_', [
-            {"/js/[...]", cowboy_static,
-                {priv_dir, werl, "static/js"}},
-            {"/js/[...]", cowboy_static,
-                {priv_dir, App, "static/js"}},
-            {"/css/[...]", cowboy_static,
-                {priv_dir, App, "static/css"}},
-            {"/favicon.ico", cowboy_static,
-                {priv_file, App, "static/favicon.ico"}},
-            {"/websocket", werl_websocket,
-                #{router => Router, ws_options => WSOptions}},
-            {'_', werl_handler,
-                #{router => Router}}
-            | Dispatch0
-        ]}
-    ]),
-    {ok, _} = cowboy:start_clear(
-        werl_http_listener,
-        [{port, 8080}],
-        #{env => #{dispatch => Dispatch}}
-    ),
+start(#{dispatcher := Dispatcher} = Args) ->
+    Routes = routes(Args),
+    case Dispatcher of
+        undefined ->
+            Dispatch = cowboy_router:compile([{'_', Routes}]),
+            {ok, _} = cowboy:start_clear(
+                werl_http_listener,
+                [{port, 8080}],
+                #{env => #{dispatch => Dispatch}}
+            );
+        {Mod, Fun} ->
+            Mod:Fun(Routes);
+        Dispatcher when is_function(Dispatcher, 1) ->
+            Dispatcher(Routes)
+    end,
     ok.
 
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
 
-% nothing here yet!
+routes(#{app := App, router := Router, ws_options := WSOptions}) ->
+    [
+        {"/js/[...]", cowboy_static, {priv_dir, werl, "static/js"}},
+        {"/js/[...]", cowboy_static, {priv_dir, App, "static/js"}},
+        {"/css/[...]", cowboy_static, {priv_dir, App, "static/css"}},
+        {"/favicon.ico", cowboy_static, {priv_file, App, "static/favicon.ico"}},
+        {"/websocket", werl_websocket, #{router => Router, ws_options => WSOptions}},
+        {'_', werl_handler, #{router => Router}}
+    ].
