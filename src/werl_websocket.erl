@@ -51,7 +51,7 @@ broadcast(Event, Payload) ->
 when
     Req :: cowboy_req:req().
 
-init(Req0, #{router := Router, idle_timeout := WsConnTimeout} = Args) ->
+init(Req0, #{router := Router, ws_options := Options} = Args) ->
     io:format("websocket connection initiated~n~p~n~nstate: ~p~n", [Req0, Args]),
 
     #{path := Path} = cowboy_req:match_qs([path], Req0),
@@ -59,7 +59,6 @@ init(Req0, #{router := Router, idle_timeout := WsConnTimeout} = Args) ->
     State = #state{
         route = Route
     },
-    Options = #{idle_timeout => WsConnTimeout},
 
     case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req0) of
         undefined ->

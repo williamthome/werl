@@ -47,7 +47,7 @@ get_env() ->
         app => get_env_value(app),
         router => get_env_value(router),
         renderer => get_env_value(renderer, undefined),
-        idle_timeout => get_env_value(idle_timeout, 60_000),
+        ws_options => get_env_value(ws_options, #{}),
         dispatch => get_env_value(dispatch, [])
     }.
 
