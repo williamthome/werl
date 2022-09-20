@@ -11,3 +11,8 @@
     {reply, event(), payload(), state()} | noreply.
 
 -callback handle_join(topic(), token()) -> {ok, term()} | error.
+
+-optional_callbacks([
+    handle_event/4,
+    handle_join/2
+]).
