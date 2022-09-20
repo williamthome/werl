@@ -36,7 +36,7 @@ start_child(App, Id, FileName) ->
 
 load_templates(App, Renderer) ->
     lists:map(
-        fun({Id, FileName}) -> start_child(App, Id, FileName) end,
+        fun({Id, FileName}) -> {ok, _} = start_child(App, Id, FileName) end,
         Renderer:templates()
     ).
 

@@ -63,7 +63,7 @@ werl.join("/chat", {
             : console.info(someone, "left the chat")
     },
     onrefused: () => alert("Not allowed to join the chat."),
-    onmsg: ({yourself, payload: msg, state: from}) => {
+    onmsg: ({yourself, payload: {payload: msg, state: from}}) => {
         !yourself && console.info("Received msg", `'${msg}'`, "from", from)
     },
 })

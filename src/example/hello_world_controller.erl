@@ -14,23 +14,22 @@
 ]).
 
 index(Req0, State0, Context) ->
-    Bindings = #{'Count' => 0},
-    {Body, Static, _, _} = werl_template:render(home, Bindings, Context),
-    req_render(Body, Static, Req0, State0, Context).
+    Bindings = #{'Count' => 0, 'Context' => Context},
+    {Body, Static, _, Memo} = werl_template:render(home, Bindings),
+    State = State0#{memo => Memo},
+    req_render(Body, Static, Req0, State, Context).
 
 not_found(Req0, State0, Context) ->
     Body = <<"Oops! Page not found :(">>,
     req_render(Body, [], Req0, State0, Context).
 
 handle_event(<<"increment">>, _Payload, State0) ->
-    io:format("Got increment~n"),
+    io:format("Got increment ~p~n", [State0]),
 
-    Count =
-        case maps:find(memo, State0) of
-            {ok, #{bindings := #{'Count' := Count0}}} -> Count0;
-            error -> 0
-        end,
-    Bindings = #{'Count' => Count + 1},
+    {ok, Memo} = maps:find(memo, State0),
+    #{bindings := #{'Count' := Count} = MemoBindings} = Memo,
+    Bindings = MemoBindings#{'Count' => Count + 1},
+    % TODO: werl_template:render/3 with Context as third arg
     {_HTML, _Static, Indexes, NewMemo} = werl_template:render(home, Bindings),
 
     State = State0#{memo => NewMemo},
@@ -61,7 +60,8 @@ req_render(Body, Static, Req0, State, Context) ->
     {HTML, _, _, _} = werl_template:render(app, #{
         'Title' => <<"WErl">>,
         'Static' => werl_json:encode(Static),
-        'InnerContent' => Body
-    }, Context),
+        'InnerContent' => Body,
+        'Context' => Context
+    }),
     Req = cowboy_req:reply(200, #{<<"content-type">> => <<"text/html">>}, HTML, Req0),
     {ok, Req, State}.

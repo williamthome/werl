@@ -200,15 +200,15 @@ function buildWerl(root) {
         state.ready ? joinCast() : socket.on("ready", joinCast)
 
         const shouldJoinedSubscribe = (callback.onjoined || callback.onmsg)
-        shouldJoinedSubscribe && socket.on("joined", ({yourself, payload: {topic, payload}}) => {
+        shouldJoinedSubscribe && socket.on("joined", ({yourself, payload: {topic, state}}) => {
             if (topic !== joinTopic) return
-            callback.onjoined({yourself, payload})
+            callback.onjoined({yourself, payload: state})
             yourself && callback.onmsg && socket.on(joinTopic, callback.onmsg)
         })
 
-        callback.onleft && socket.on("left", ({yourself, payload: {topic, payload}}) => {
+        callback.onleft && socket.on("left", ({yourself, payload: {topic, state}}) => {
             if (topic !== joinTopic) return
-            callback.onleft({yourself, payload})
+            callback.onleft({yourself, payload: state})
         })
 
         callback.onrefused && socket.on("refused", (topic) => {

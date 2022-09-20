@@ -1,3 +1,4 @@
+% TODO: Remove this comments
 % @doc
 % event = local (something to be handled)
 % topic = global (broadcast related)
@@ -91,21 +92,16 @@ websocket_handle({text, Msg}, State) ->
 
 -spec websocket_info(term(), state()) -> handle_return().
 
-websocket_info({From, broadcast, Event, EventPayload}, State) ->
-    io:format("Got broadcast ~p~n", [{From, Event, EventPayload}]),
+websocket_info({From, broadcast, Topic, Payload}, State) ->
+    io:format("Got broadcast ~p~n", [{From, Topic, Payload}]),
 
-    EventSubscribers = gproc:lookup_values({p, l, {?MODULE, broadcast, Event}}),
-    FromStates = proplists:get_all_values(From, EventSubscribers),
-    FromEventState = proplists:get_value(Event, FromStates),
-
-    Payload = #{
+    ReplyPayload = #{
         <<"yourself">> => From =:= self(),
-        <<"payload">> => EventPayload,
-        <<"state">> => FromEventState
+        <<"payload">> => Payload
     },
-    io:format("Broadcasting ~p~n", [{Event, Payload}]),
+    io:format("Broadcasting ~p~n", [{Topic, ReplyPayload}]),
 
-    do_reply(Event, Payload, State).
+    do_reply(Topic, ReplyPayload, State).
 
 -spec terminate(term(), cowboy_req:req(), term()) -> ok.
 
@@ -115,21 +111,22 @@ terminate(Reason, Req, State) ->
         [maps:get(peer, Req), Reason, State]
     ),
 
-    Values = gproc:lookup_values({p, l, {?MODULE, broadcast, '_'}}),
-    Topics = proplists:get_all_values(self(), Values),
-    io:format("Got topics to left ~p~n", [Topics]),
+    AllSubscribers = gproc:lookup_values({p, l, {?MODULE, broadcast, '_'}}),
+    TopicsSubscribed = proplists:get_all_values(self(), AllSubscribers),
+    io:format("Got topics to left ~p~n", [TopicsSubscribed]),
 
     lists:foreach(
-        fun({Topic, Meta}) ->
+        fun({Topic, TopicState}) ->
             BCastPayload = #{
                 <<"topic">> => Topic,
-                <<"payload">> => Meta
+                <<"state">> => TopicState
             },
-            gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
-                self(), broadcast, left, BCastPayload
-            })
+            gproc:send(
+                {p, l, {?MODULE, broadcast, Topic}},
+                {self(), broadcast, left, BCastPayload}
+            )
         end,
-        Topics
+        TopicsSubscribed
     ),
 
     ok.
@@ -172,20 +169,27 @@ do_handle(
     #state{route = #{controller := Controller}} = State
 ) ->
     io:format("Got join ~p~n", [Payload]),
-    #{<<"topic">> := Topic, <<"token">> := Token} = Payload,
+    #{
+        <<"topic">> := Topic,
+        <<"token">> := Token
+    } = Payload,
     case erlang:apply(Controller, handle_join, [Topic, Token]) of
-        {ok, Meta} ->
-            io:format("Got joined ~p~n", [{Topic, Meta}]),
+        {ok, TopicState} ->
+            io:format("Got joined ~p~n", [{Topic, TopicState}]),
 
-            true = gproc:reg({p, l, {?MODULE, broadcast, Topic}}, {Topic, Meta}),
+            true = gproc:reg(
+                {p, l, {?MODULE, broadcast, Topic}},
+                {Topic, TopicState}
+            ),
 
             BCastPayload = #{
                 <<"topic">> => Topic,
-                <<"payload">> => Meta
+                <<"state">> => TopicState
             },
-            gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
-                self(), broadcast, joined, BCastPayload
-            }),
+            gproc:send(
+                {p, l, {?MODULE, broadcast, Topic}},
+                {self(), broadcast, joined, BCastPayload}
+            ),
 
             do_reply(State);
         error ->
@@ -200,10 +204,24 @@ do_handle(
 ) ->
     io:format("Got broadcast ~p~n", [Payload]),
 
-    #{<<"topic">> := Topic, <<"msg">> := Msg} = Payload,
-    gproc:send({p, l, {?MODULE, broadcast, Topic}}, {
-        self(), broadcast, Topic, Msg
-    }),
+    #{
+        <<"topic">> := Topic,
+        <<"msg">> := Msg
+    } = Payload,
+
+    Subscribers = gproc:lookup_values({p, l, {?MODULE, broadcast, Topic}}),
+    Topics = proplists:get_all_values(self(), Subscribers),
+    TopicState = proplists:get_value(Topic, Topics),
+
+    BCastPayload = #{
+        <<"topic">> => Topic,
+        <<"payload">> => Msg,
+        <<"state">> => TopicState
+    },
+    gproc:send(
+        {p, l, {?MODULE, broadcast, Topic}},
+        {self(), broadcast, Topic, BCastPayload}
+    ),
 
     do_reply(State);
 do_handle(
@@ -219,14 +237,14 @@ do_handle(
         <<"event">> := CbEvent,
         <<"payload">> := CbPayload
     } = Payload,
-    {reply, Reply, NewState} =
-        erlang:apply(Controller, handle_call, [{CbEvent, CbPayload}, self(), State]),
+    {reply, Reply, NewState} = erlang:apply(
+        Controller, handle_call, [{CbEvent, CbPayload}, self(), State]
+    ),
 
     Callback = #{
         <<"event">> => CbEvent,
         <<"payload">> => Reply
     },
-
     io:format("Calling ~p~n", [Reply]),
 
     do_reply(<<"call">>, Callback, NewState);
@@ -235,7 +253,10 @@ do_handle(
         <<"event">> := Event,
         <<"payload">> := Payload
     },
-    #state{route = #{controller := Controller}, view_state = ViewState0} = State0
+    #state{
+        route = #{controller := Controller},
+        view_state = ViewState0
+    } = State0
 ) ->
     case erlang:apply(Controller, handle_event, [Event, Payload, ViewState0]) of
         {reply, ReEvent, RePayload, ViewState1} ->

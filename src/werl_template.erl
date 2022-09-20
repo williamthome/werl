@@ -6,8 +6,8 @@
 -export([
     start_link/2,
     start_link/3,
+    render/2,
     render/3,
-    render/4,
     compiled/1,
     static/1,
     ast/1
@@ -57,22 +57,22 @@ start_link(App, TemplateId, TemplateFilename) when is_list(TemplateFilename) ->
 %% @doc Render.
 %% @end
 %%------------------------------------------------------------------------------
--spec render(atom(), eel_render:memo(), map()) ->
+-spec render(atom(), eel_render:memo()) ->
     {binary(), eel_compile:static(), eel_render:bindings_indexes(), eel_render:memo()}.
 
-render(TemplateId, Bindings, Context) ->
+render(TemplateId, Bindings) ->
     Memo = maps:new(),
-    render(TemplateId, Bindings, Memo, Context).
+    render(TemplateId, Bindings, Memo).
 
 %%------------------------------------------------------------------------------
 %% @doc Render with memo.
 %% @end
 %%------------------------------------------------------------------------------
--spec render(atom(), eel_render:bindings(), eel_render:memo(), map()) ->
+-spec render(atom(), eel_render:bindings(), eel_render:memo()) ->
     {binary(), eel_compile:static(), map(), map()}.
 
-render(TemplateId, Bindings, Memo, Context) ->
-    gen_server:call(TemplateId, {render, Bindings, Memo, Context}).
+render(TemplateId, Bindings, Memo) ->
+    gen_server:call(TemplateId, {render, Bindings, Memo}).
 
 %%------------------------------------------------------------------------------
 %% @doc Compiled.
@@ -110,8 +110,7 @@ init([Compiled]) ->
     State = #state{compiled = Compiled},
     {ok, State}.
 
-handle_call({render, Bindings0, Memo, Context}, _From, #state{compiled = Compiled} = State) ->
-    Bindings = Bindings0#{'Context' => Context},
+handle_call({render, Bindings, Memo}, _From, #state{compiled = Compiled} = State) ->
     {Render, NewMemo, Indexes} = eel:render(Compiled, Memo, Bindings),
     {Static, _AST} = Compiled,
     {reply, {Render, Static, Indexes, NewMemo}, State};
