@@ -14,14 +14,15 @@
 ]).
 
 index(Req0, State0, Context) ->
+    Head = <<"<script src=\"js/main.js\" defer></script>">>,
     Bindings = #{'Count' => 0, 'Context' => Context},
     {Body, Static, _, Memo} = werl_template:render(home, Bindings),
     State = State0#{memo => Memo},
-    req_render(Body, Static, Req0, State, Context).
+    hello_world_renderer:req_render(Head, Body, Static, Req0, State, Context).
 
 not_found(Req0, State0, Context) ->
     Body = <<"Oops! Page not found :(">>,
-    req_render(Body, [], Req0, State0, Context).
+    hello_world_renderer:req_render(Body, [], Req0, State0, Context).
 
 handle_event(<<"increment">>, _Payload, State0) ->
     io:format("Got increment ~p~n", [State0]),
@@ -56,12 +57,4 @@ handle_join(_Topic, _Token) ->
 %%% Internal functions
 %%%=============================================================================
 
-req_render(Body, Static, Req0, State, Context) ->
-    {HTML, _, _, _} = werl_template:render(app, #{
-        'Title' => <<"WErl">>,
-        'Static' => werl_json:encode(Static),
-        'InnerContent' => Body,
-        'Context' => Context
-    }),
-    Req = cowboy_req:reply(200, #{<<"content-type">> => <<"text/html">>}, HTML, Req0),
-    {ok, Req, State}.
+% nothing here yet!

@@ -9,5 +9,5 @@
 routes() ->
     werl_router:create_routes([
         {<<"GET">>, <<"/">>, hello_world_controller, index, #{}},
-        {<<"GET">>, '_', hello_world_controller, not_found, #{}}
+        {<<"GET">>, '_', hello_world_controller_404, index, #{}}
     ]).
